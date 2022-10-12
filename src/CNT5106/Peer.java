@@ -1,16 +1,19 @@
 package CNT5106;
 import CNT5106.Message;
 
+import java.util.Arrays;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.ArrayList;
 
 public class Peer {
+    LinkedBlockingQueue<Message> inbox = new LinkedBlockingQueue<Message>(); // all recev tcp threads write to here
     ArrayList<TCPIn> peerInConnections = new ArrayList<TCPIn>(); // have these peers add messages to a thread safe queue
     ArrayList<TCPOut> peerOutConnections = new ArrayList<TCPOut>(); // peer connections to send messages
     public Peer(){
         // init stuff on creation
     }
     public boolean Connect(){
-        // connect to other peers & main server
+        // connect to other peers with help from main server
         // spin up several threads for each peer
         return false; // failed to connect to peer network
     }
@@ -24,5 +27,7 @@ public class Peer {
         Peer me = new Peer();
         me.Connect();
         me.getFile();
+        Message myMessage = new Message(1, Message.MessageTypes.choke,"Hello");
+        System.out.println(String.format("0x%02X ", myMessage.toBytes()[0]));
     }
 }
