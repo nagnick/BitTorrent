@@ -1,6 +1,8 @@
 package CNT5106;
 
-import java.nio.charset.StandardCharsets;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.util.Arrays;
 
 public class Message {
     public enum MessageTypes{
@@ -19,20 +21,24 @@ public class Message {
     String payload; // variable size message payload last in message
     String handShake = "P2PFILESHARINGPROJ0000000000"; // handshake only field
     int peerID; // handshake only field maybe useful in message queue
-    public Message(int length,MessageTypes type,String payload){
+    public Message(int length,MessageTypes type,String payload){ // make any other message
         this.length = length;
         this.type = type;
         this.payload = payload;
     }
-    public Message(byte[] input){ // fix to read byte representations
-        String messageContent = String.valueOf(input);
-        if(messageContent.substring(0,18).equals(handShake.substring(0,18))){
+    public Message(int peerID){ // make handshake message
+        this.peerID = peerID;
+        type = MessageTypes.handShake;
+    }
+    public Message(byte[] input,boolean handshake){ // fix to read byte representations
+        ByteBuffer mybuff = ByteBuffer.allocate(input.length).put(input).order(ByteOrder.LITTLE_ENDIAN);
+        if(handshake){
             this.type = MessageTypes.handShake;
-            this.peerID = Integer.getInteger(messageContent.substring(28));
+            this.peerID = mybuff.getInt(28);
         }
         else{
-            this.length = Integer.getInteger(messageContent.substring(0,4));
-            this.type = switch ( Integer.getInteger(messageContent.substring(4,5))){
+            this.length = mybuff.getInt(0);
+            this.type = switch ((int)mybuff.get(4)){
                 case(0)-> MessageTypes.choke;
                 case(1)-> MessageTypes.unchoke;
                 case(2)-> MessageTypes.interested;
@@ -43,17 +49,23 @@ public class Message {
                 case(7)-> MessageTypes.piece;
                 default -> throw new RuntimeException("Unexpected message type in char[] constructor of Message\n");
             };
-            this.payload = messageContent.substring(5);
+            this.payload = new String(Arrays.copyOfRange(input,5,input.length));
         }
     }
     byte[] toBytes(){ // easy to send
         if(type == MessageTypes.handShake){
-            return (handShake + peerID).getBytes(StandardCharsets.UTF_8); // FIX to print peer in 4 byte representation
+            ByteBuffer mybuff = ByteBuffer.allocate(32).order(ByteOrder.LITTLE_ENDIAN); // is this right little endian
+            mybuff.put(handShake.getBytes());
+            mybuff.position(28).putInt(peerID);
+            return mybuff.array();
         }
         else {
-            return (String.valueOf(length) + String.valueOf(type.ordinal()) + payload).getBytes(StandardCharsets.UTF_8); // convert everything to sting then to char[] aka byte array
+            ByteBuffer mybuff = ByteBuffer.allocate(5 + length).order(ByteOrder.LITTLE_ENDIAN); // is this right little endian
+            mybuff.putInt(length);
+            mybuff.position(4).put((byte)type.ordinal());
+            mybuff.position(5).put(payload.getBytes());
+            return mybuff.array();
             // type.ordinal returns the int representation
-            // FIX all above to print in byte representations
         }
     }
 }

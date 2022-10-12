@@ -14,12 +14,18 @@ public class Peer {
     }
     public boolean Connect(){
         // connect to other peers with help from main server
-        // spin up several threads for each peer
+        new Thread(() -> { // start listening for peer connections on separate thread
+            // spin up several threads for each peer that connects
+
+        }).start();
+
         return false; // failed to connect to peer network
     }
     public boolean getFile(){
         // start main process of asking peers for bytes of file
-        // while loop over Inqueue
+        while(!inbox.isEmpty()){ // add && file is incomplete
+            //process messages and respond appropriately
+        }
         return false; // failed to get all bytes of file from network
     }
     public static void main(String args[])
@@ -27,7 +33,11 @@ public class Peer {
         Peer me = new Peer();
         me.Connect();
         me.getFile();
-        Message myMessage = new Message(1, Message.MessageTypes.choke,"Hello");
-        System.out.println(String.format("0x%02X ", myMessage.toBytes()[0]));
+        Message myMessage = new Message(5, Message.MessageTypes.unchoke,"Hello");
+        byte[] temp = myMessage.toBytes();
+        System.out.println(Arrays.toString(temp));
+        System.out.println(Arrays.toString(new Message(temp,false).toBytes()));
+        System.out.println(Arrays.toString(temp = new Message(128).toBytes()));
+        System.out.println(Arrays.toString(new Message(temp,true).toBytes()));
     }
 }

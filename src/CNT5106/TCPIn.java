@@ -23,7 +23,7 @@ public class TCPIn extends Thread{ // spining thread waiting for peer messages
             // tcp network stuff
             while(!connection.isClosed()) {
                 byte[] message = in.readNBytes(10); // FIX to read bytes of a single message in not objects
-                inbox.put(new Message(message));
+                inbox.put(new Message(message,false));
             }
         }
         catch (Exception e) {
