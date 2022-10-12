@@ -18,4 +18,7 @@ public class Message {
         this.type = type;
         this.payload = payload;
     }
+    char[] toBytes(){ // easy to send
+        return (String.valueOf(length) + String.valueOf(type) + payload).toCharArray(); // convert everything to sting then to char[] aka byte array
+    }
 }
