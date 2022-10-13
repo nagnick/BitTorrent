@@ -68,4 +68,16 @@ public class Message {
             // type.ordinal returns the int representation
         }
     }
+
+    @Override
+    public String toString() {
+        String myString;
+        if(type == MessageTypes.handShake) {
+            myString = handShake + peerID;
+        }
+        else{
+           myString = length + type.ordinal() + payload;
+        }
+        return myString;
+    }
 }
