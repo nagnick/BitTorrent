@@ -31,7 +31,7 @@ public class Message {
         type = MessageTypes.handShake;
     }
     public Message(byte[] input,boolean handshake){ // fix to read byte representations
-        ByteBuffer mybuff = ByteBuffer.allocate(input.length).put(input).order(ByteOrder.LITTLE_ENDIAN);
+        ByteBuffer mybuff = ByteBuffer.allocate(input.length).put(input).order(ByteOrder.BIG_ENDIAN);
         if(handshake){
             this.type = MessageTypes.handShake;
             this.peerID = mybuff.getInt(28);
@@ -54,13 +54,13 @@ public class Message {
     }
     byte[] toBytes(){ // easy to send
         if(type == MessageTypes.handShake){
-            ByteBuffer mybuff = ByteBuffer.allocate(32).order(ByteOrder.LITTLE_ENDIAN); // is this right little endian
+            ByteBuffer mybuff = ByteBuffer.allocate(32).order(ByteOrder.BIG_ENDIAN); // is this right little endian
             mybuff.put(handShake.getBytes());
             mybuff.position(28).putInt(peerID);
             return mybuff.array();
         }
         else {
-            ByteBuffer mybuff = ByteBuffer.allocate(5 + length).order(ByteOrder.LITTLE_ENDIAN); // is this right little endian
+            ByteBuffer mybuff = ByteBuffer.allocate(5 + length).order(ByteOrder.BIG_ENDIAN); // is this right little endian
             mybuff.putInt(length);
             mybuff.position(4).put((byte)type.ordinal());
             mybuff.position(5).put(payload.getBytes());
@@ -73,10 +73,10 @@ public class Message {
     public String toString() {
         String myString;
         if(type == MessageTypes.handShake) {
-            myString = handShake + peerID;
+            myString = "HandShakeHeader: " + handShake +" PeerID: " + peerID;
         }
         else{
-           myString = length + type.ordinal() + payload;
+           myString = "Length: " +length +" Type: "+ type.toString()+" Payload: " + payload;
         }
         return myString;
     }

@@ -75,13 +75,15 @@ public class Peer {
     public static void main(String args[])
     {
         Peer me = new Peer();
-        me.Connect();
-        me.getFile();
+        //me.Connect();
+        //me.getFile(); work in progress
         Message myMessage = new Message(5, Message.MessageTypes.unchoke,"Hello");
         byte[] temp = myMessage.toBytes();
         System.out.println(Arrays.toString(temp));
-        System.out.println(Arrays.toString(new Message(temp,false).toBytes()));
+        System.out.println(Arrays.toString((myMessage = new Message(temp,false)).toBytes()));
+        System.out.println(myMessage.toString());
         System.out.println(Arrays.toString(temp = new Message(128).toBytes()));
-        System.out.println(Arrays.toString(new Message(temp,true).toBytes()));
+        System.out.println(Arrays.toString((myMessage = new Message(temp,true)).toBytes()));
+        System.out.println(myMessage.toString());
     }
 }
