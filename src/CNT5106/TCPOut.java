@@ -26,4 +26,14 @@ public class TCPOut{ // connections ready to send messages
         }
         return false;
     }
+    public void close(){
+        try {
+            connection.close();
+            out.flush();
+            out.close();
+        }
+        catch (Exception e){
+            System.out.println("Error closing TCP OUT connection");
+        }
+    }
 }

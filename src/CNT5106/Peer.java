@@ -1,6 +1,10 @@
 package CNT5106;
 import CNT5106.Message;
 
+import java.io.IOException;
+import java.net.ConnectException;
+import java.net.Socket;
+import java.net.UnknownHostException;
 import java.util.Arrays;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.ArrayList;
@@ -14,17 +18,57 @@ public class Peer {
     }
     public boolean Connect(){
         // connect to other peers with help from main server
-        new Thread(() -> { // start listening for peer connections on separate thread
+        try { // connect to server and find peers
+            Socket serverSocket = new Socket("localhost", 8000);
+            TCPOut serverOut = new TCPOut(serverSocket);
+            TCPIn serverIn = new TCPIn(inbox, serverSocket);
+            serverOut.send(new Message(1234)); // send my peer id??
+            Message serverMessage = inbox.remove(); // get back a request message maybe???
+
+        }
+        catch (ConnectException e) {
+                System.err.println("Connection refused. Server not found");
+            }
+            catch(UnknownHostException unknownHost){
+                System.err.println("You are trying to connect to an unknown host!");
+            }
+            catch(IOException ioException){
+                ioException.printStackTrace();
+        }
+
+        while(true) { // start connecting to peers change while peer list not empty
             // spin up several threads for each peer that connects
+            try {
+                Socket peerSocket = new Socket("localhost", 8000); // connect to a peer switch to peer ip as host
+                TCPOut peerOut = new TCPOut(peerSocket); // add to list
+                TCPIn peerIn = new TCPIn(inbox,peerSocket); // add to list
+            }
+            catch (ConnectException e) {
+                System.err.println("Connection refused. Peer not found");
+            }
+            catch(UnknownHostException unknownHost){
+                System.err.println("You are trying to connect to an unknown host!");
+            }
+            catch(IOException ioException){
+                ioException.printStackTrace();
+            }
+        }
+// use this lambda style if you need to spin up a random thread at any point
+//        new Thread(() -> { // listen for other peers wishing to connect with me
+        //ServerSocket listener = new ServerSocket(8000);
+        //Socket peerSocket = listener.accept();
+        //TCPOut peerOut = new TCPOut(peerSocket); // add to list
+        //TCPIn peerIn = new TCPIn(inbox,peerSocket); // add to list
+//            }).start();
 
-        }).start();
-
-        return false; // failed to connect to peer network
+        //return false; // failed to connect to peer network
     }
     public boolean getFile(){
         // start main process of asking peers for bytes of file
         while(!inbox.isEmpty()){ // add && file is incomplete
             //process messages and respond appropriately
+            System.out.println(inbox.peek().type.toString());
+            inbox.remove();
         }
         return false; // failed to get all bytes of file from network
     }

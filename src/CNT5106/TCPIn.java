@@ -4,7 +4,7 @@ import java.io.ObjectInputStream;
 import java.net.Socket;
 import java.util.concurrent.LinkedBlockingQueue;
 
-public class TCPIn extends Thread{ // spining thread waiting for peer messages
+public class TCPIn extends Thread{ // spinning thread waiting for peer messages
     LinkedBlockingQueue<Message> inbox;
     Socket connection;
     ObjectInputStream in;
@@ -28,6 +28,15 @@ public class TCPIn extends Thread{ // spining thread waiting for peer messages
         }
         catch (Exception e) {
             System.out.println("Error running TCPIn thread");
+        }
+    }
+    public void close(){
+        try {
+            connection.close();
+            in.close();
+        }
+        catch (Exception e){
+            System.out.println("Error closing TCP IN connection");
         }
     }
 }
