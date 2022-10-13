@@ -30,7 +30,7 @@ public class Message {
         this.peerID = peerID;
         type = MessageTypes.handShake;
     }
-    public Message(byte[] input,boolean handshake){ // fix to read byte representations
+    public Message(byte[] input, boolean handshake){ // fix to read byte representations
         ByteBuffer mybuff = ByteBuffer.allocate(input.length).put(input).order(ByteOrder.BIG_ENDIAN);
         if(handshake){
             this.type = MessageTypes.handShake;
