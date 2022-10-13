@@ -23,7 +23,7 @@ public class Peer {
             TCPOut serverOut = new TCPOut(serverSocket);
             TCPIn serverIn = new TCPIn(inbox, serverSocket);
             serverOut.send(new Message(1234)); // send my peer id??
-            Message serverMessage = inbox.remove(); // get back a request message maybe???
+            Message serverMessage = inbox.remove(); // get back a request message maybe??? with list of peerID's and IP's
 
         }
         catch (ConnectException e) {
