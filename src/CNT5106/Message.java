@@ -20,7 +20,7 @@ public class Message {
     MessageTypes type; // 1 byte second part in message
     String payload; // variable size message payload last in message
     String handShake = "P2PFILESHARINGPROJ0000000000"; // handshake only field
-    int peerID; // handshake only field maybe useful in message queue
+    int peerID; // handshake only field maybe useful in message queue!!!! to know what came from what
     public Message(int length,MessageTypes type,String payload){ // make any other message
         this.length = length;
         this.type = type;

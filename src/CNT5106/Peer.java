@@ -7,16 +7,16 @@ import java.net.Socket;
 import java.net.UnknownHostException;
 import java.util.Arrays;
 import java.util.concurrent.LinkedBlockingQueue;
-import java.util.ArrayList;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class Peer {
     LinkedBlockingQueue<Message> inbox = new LinkedBlockingQueue<Message>(); // all recev tcp threads write to here
-    ArrayList<TCPIn> peerInConnections = new ArrayList<TCPIn>(); // have these peers add messages to a thread safe queue
-    ArrayList<TCPOut> peerOutConnections = new ArrayList<TCPOut>(); // peer connections to send messages
+    ConcurrentHashMap<Integer,TCPIn> peerInConnections = new ConcurrentHashMap<Integer, TCPIn>(); // have these peers add messages to a thread safe queue
+    ConcurrentHashMap<Integer,TCPOut> peerOutConnections = new ConcurrentHashMap<Integer, TCPOut>(); // peer connections to send messages
     public Peer(){
         // init stuff on creation
     }
-    public boolean Connect(){
+    public boolean Connect(){ // finish this once server is build
         // connect to other peers with help from main server
         try { // connect to server and find peers
             Socket serverSocket = new Socket("localhost", 8000);
