@@ -55,7 +55,7 @@ public class Peer {
         }
 // use this lambda style if you need to spin up a random thread at any point
 //        new Thread(() -> { // listen for other peers wishing to connect with me
-        //ServerSocket listener = new ServerSocket(8000);
+        //ServerSocket listener = new ServerSocket(8000); // passive listener put this in a loop on own thread
         //Socket peerSocket = listener.accept();
         //TCPOut peerOut = new TCPOut(peerSocket); // add to list
         //TCPIn peerIn = new TCPIn(inbox,peerSocket); // add to list
