@@ -3,6 +3,7 @@ import CNT5106.Message;
 
 import java.io.IOException;
 import java.net.ConnectException;
+import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.UnknownHostException;
 import java.util.Arrays;
@@ -10,38 +11,30 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class Peer {
+    Integer myID;
+    Thread serverThread;
     LinkedBlockingQueue<Message> inbox = new LinkedBlockingQueue<Message>(); // all recev tcp threads write to here
     ConcurrentHashMap<Integer,TCPIn> peerInConnections = new ConcurrentHashMap<Integer, TCPIn>(); // have these peers add messages to a thread safe queue
     ConcurrentHashMap<Integer,TCPOut> peerOutConnections = new ConcurrentHashMap<Integer, TCPOut>(); // peer connections to send messages
     public Peer(){
         // init stuff on creation
+        myID = -1;
     }
-    public boolean Connect(){ // finish this once server is build
-        // connect to other peers with help from main server
-        try { // connect to server and find peers
-            Socket serverSocket = new Socket("localhost", 8000);
-            TCPOut serverOut = new TCPOut(serverSocket);
-            TCPIn serverIn = new TCPIn(inbox, serverSocket);
-            serverOut.send(new Message(1234)); // send my peer id??
-            Message serverMessage = inbox.remove(); // get back a request message maybe??? with list of peerID's and IP's
-
-        }
-        catch (ConnectException e) {
-                System.err.println("Connection refused. Server not found");
-            }
-            catch(UnknownHostException unknownHost){
-                System.err.println("You are trying to connect to an unknown host!");
-            }
-            catch(IOException ioException){
-                ioException.printStackTrace();
-        }
-
-        while(true) { // start connecting to peers change while peer list not empty
+    public void Connect(){ // finish this once server is build
+        // connect to other peers with help from manifest file
+        // read file connect to those peers probably need to try multiple times as other peers may not be up yet
+        int i = 0;
+        while(i++ < 5) { // start connecting to peers change while peer list not empty from manifest file
             // spin up several threads for each peer that connects
             try {
                 Socket peerSocket = new Socket("localhost", 8000); // connect to a peer switch to peer ip as host
                 TCPOut peerOut = new TCPOut(peerSocket); // add to list
                 TCPIn peerIn = new TCPIn(inbox,peerSocket); // add to list
+                peerOut.send(new Message(myID));// send handshake
+                Message peerHandshake = peerIn.getHandShake();
+                peerIn.start(); // start that peers thread
+                peerInConnections.put(peerHandshake.peerID,peerIn);
+                peerOutConnections.put(peerHandshake.peerID,peerOut);
             }
             catch (ConnectException e) {
                 System.err.println("Connection refused. Peer not found");
@@ -53,15 +46,27 @@ public class Peer {
                 ioException.printStackTrace();
             }
         }
-// use this lambda style if you need to spin up a random thread at any point
-//        new Thread(() -> { // listen for other peers wishing to connect with me
-        //ServerSocket listener = new ServerSocket(8000); // passive listener put this in a loop on own thread
-        //Socket peerSocket = listener.accept();
-        //TCPOut peerOut = new TCPOut(peerSocket); // add to list
-        //TCPIn peerIn = new TCPIn(inbox,peerSocket); // add to list
-//            }).start();
+// use this lambda style if you need to spin up a random thread at any point just dont capture it
+        serverThread = new Thread(() -> { // listen for other peers wishing to connect with me on seperate thread
+            try {
+                ServerSocket listener = new ServerSocket(8000); // passive listener on own thread
+                while(true) {
+                    Socket peerSocket = listener.accept(); // this blocks waiting for new connections
+                    TCPOut peerOut = new TCPOut(peerSocket); // add to list
+                    TCPIn peerIn = new TCPIn(inbox, peerSocket); // add to list
+                    peerOut.send(new Message(myID));// send handshake
+                    Message peerHandshake = peerIn.getHandShake();
+                    peerIn.start(); // start that peers thread
+                    peerInConnections.put(peerHandshake.peerID, peerIn);
+                    peerOutConnections.put(peerHandshake.peerID, peerOut);
+                }
+            }
+            catch (Exception e){
+                System.out.println("Error running server sockets");
+            }
+        });
+        serverThread.start();
 
-        //return false; // failed to connect to peer network
     }
     public boolean getFile(){
         // start main process of asking peers for bytes of file

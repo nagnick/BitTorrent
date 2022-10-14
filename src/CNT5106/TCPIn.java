@@ -18,7 +18,18 @@ public class TCPIn extends Thread{ // spinning thread waiting for peer messages
             System.out.println("Error creating TCPIN ");
         }
     }
-    public void run(){
+    public Message getHandShake(){ // use before starting thread
+        byte[] messageBytes = {0,0,0,0}; // puts a zero int in message if bellow fails
+        try {
+            messageBytes = in.readNBytes(10);
+            // fix to read message properly
+        }
+        catch (Exception e) {
+            System.out.println("Error reading TCPIn handshake");
+        }
+        return new Message(messageBytes, true);
+    }
+    public void start(){
         try {
             // tcp network stuff
             while(!connection.isClosed()) {
