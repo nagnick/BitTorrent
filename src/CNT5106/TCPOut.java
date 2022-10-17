@@ -6,6 +6,7 @@ import java.net.Socket;
 public class TCPOut{ // connections ready to send messages
     Socket connection;
     ObjectOutputStream out;
+    int peerID;
     public TCPOut(Socket connection){ // pass in peer info to connect to
         // initialize tcp connection to peer
         this.connection = connection;
@@ -35,5 +36,8 @@ public class TCPOut{ // connections ready to send messages
         catch (Exception e){
             System.out.println("Error closing TCP OUT connection");
         }
+    }
+    public void setPeerId(int ID){
+        peerID = ID;
     }
 }

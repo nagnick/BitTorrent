@@ -20,7 +20,7 @@ public class Peer {
         // init stuff on creation
         myID = -1;
     }
-    public void Connect(){ // finish this once server is build
+    public void Connect(){ // parse manifest file and connect to peers
         // connect to other peers with help from manifest file
         // read file connect to those peers probably need to try multiple times as other peers may not be up yet
         int i = 0;
@@ -32,6 +32,10 @@ public class Peer {
                 TCPIn peerIn = new TCPIn(inbox,peerSocket); // add to list
                 peerOut.send(new Message(myID));// send handshake
                 Message peerHandshake = peerIn.getHandShake();
+
+                peerIn.setPeerId(peerHandshake.peerID); // set peerID for tracking of message origin in message queue
+                peerOut.setPeerId(peerHandshake.peerID); // important later when messages are mixed in queue to track their origin
+
                 peerIn.start(); // start that peers thread
                 peerInConnections.put(peerHandshake.peerID,peerIn);
                 peerOutConnections.put(peerHandshake.peerID,peerOut);
@@ -50,12 +54,16 @@ public class Peer {
         serverThread = new Thread(() -> { // listen for other peers wishing to connect with me on seperate thread
             try {
                 ServerSocket listener = new ServerSocket(8000); // passive listener on own thread
-                while(true) {
+                while(true) { // need to add map duplicate insert checks as some peers may try to connect after we have already connected
                     Socket peerSocket = listener.accept(); // this blocks waiting for new connections
                     TCPOut peerOut = new TCPOut(peerSocket); // add to list
                     TCPIn peerIn = new TCPIn(inbox, peerSocket); // add to list
                     peerOut.send(new Message(myID));// send handshake
                     Message peerHandshake = peerIn.getHandShake();
+
+                    peerIn.setPeerId(peerHandshake.peerID); // set peerID for tracking of message origin in message queue
+                    peerOut.setPeerId(peerHandshake.peerID);
+
                     peerIn.start(); // start that peers thread
                     peerInConnections.put(peerHandshake.peerID, peerIn);
                     peerOutConnections.put(peerHandshake.peerID, peerOut);
@@ -68,7 +76,7 @@ public class Peer {
         serverThread.start();
 
     }
-    public boolean getFile(){
+    public boolean getFile(){ // actual work done here
         // start main process of asking peers for bytes of file
         while(!inbox.isEmpty()){ // add && file is incomplete
             //process messages and respond appropriately
@@ -85,10 +93,10 @@ public class Peer {
         Message myMessage = new Message(5, Message.MessageTypes.unchoke,"Hello");
         byte[] temp = myMessage.toBytes();
         System.out.println(Arrays.toString(temp));
-        System.out.println(Arrays.toString((myMessage = new Message(temp,false)).toBytes()));
+        System.out.println(Arrays.toString((myMessage = new Message(temp,false,100)).toBytes()));
         System.out.println(myMessage.toString());
         System.out.println(Arrays.toString(temp = new Message(128).toBytes()));
-        System.out.println(Arrays.toString((myMessage = new Message(temp,true)).toBytes()));
+        System.out.println(Arrays.toString((myMessage = new Message(temp,true,101)).toBytes()));
         System.out.println(myMessage.toString());
     }
 }
