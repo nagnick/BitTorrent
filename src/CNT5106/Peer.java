@@ -111,35 +111,37 @@ public class Peer {
         				isFirstPeer = true;
         			}
         		}
-        	
-	            // spin up several threads for each peer that connects
-	            try {
-	            	if(!isFirstPeer) //only try to connect when we're not the first peer
-	            	{
-		                Socket peerSocket = new Socket(peerHostName, peerListenPort); // connect to a peer
-		                TCPOut peerOut = new TCPOut(peerSocket); // add to list
-		                TCPIn peerIn = new TCPIn(inbox,peerSocket); // add to list
-		                peerOut.send(new Message(myID));// send handshake
-		                Message peerHandshake = peerIn.getHandShake();
-		
-		                peerIn.setPeerId(peerHandshake.peerID); // set peerID for tracking of message origin in message queue
-		                peerOut.setPeerId(peerHandshake.peerID); // important later when messages are mixed in queue to track their origin
-		
-		                peerIn.start(); // start that peers thread
-		                peerInConnections.put(peerHandshake.peerID,peerIn);
-		                peerOutConnections.put(peerHandshake.peerID,peerOut);
-	            	}
-	            	peerFileMap.put(currentPeerID, peerHasFile); //still build the map of which peers have what files.
-	            }
-	            catch (ConnectException e) {
-	                System.err.println("Connection refused. Peer not found");
-	            }
-	            catch(UnknownHostException unknownHost){
-	                System.err.println("You are trying to connect to an unknown host!");
-	            }
-	            catch(IOException ioException){
-	                ioException.printStackTrace();
-	            }
+        		else
+        		{
+		            // spin up several threads for each peer that connects
+		            try {
+		            	if(!isFirstPeer) //only try to connect when we're not the first peer
+		            	{
+			                Socket peerSocket = new Socket(peerHostName, peerListenPort); // connect to a peer
+			                TCPOut peerOut = new TCPOut(peerSocket); // add to list
+			                TCPIn peerIn = new TCPIn(inbox,peerSocket); // add to list
+			                peerOut.send(new Message(myID));// send handshake
+			                Message peerHandshake = peerIn.getHandShake();
+			
+			                peerIn.setPeerId(peerHandshake.peerID); // set peerID for tracking of message origin in message queue
+			                peerOut.setPeerId(peerHandshake.peerID); // important later when messages are mixed in queue to track their origin
+			
+			                peerIn.start(); // start that peers thread
+			                peerInConnections.put(peerHandshake.peerID,peerIn);
+			                peerOutConnections.put(peerHandshake.peerID,peerOut);
+		            	}
+		            	peerFileMap.put(currentPeerID, peerHasFile); //still build the map of which peers have what files.
+		            }
+		            catch (ConnectException e) {
+		                System.err.println("Connection refused. Peer not found");
+		            }
+		            catch(UnknownHostException unknownHost){
+		                System.err.println("You are trying to connect to an unknown host!");
+		            }
+		            catch(IOException ioException){
+		                ioException.printStackTrace();
+		            }
+        		}
         	}
         }
 // use this lambda style if you need to spin up a random thread at any point just dont capture it
