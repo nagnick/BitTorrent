@@ -184,7 +184,7 @@ public class Peer {
         final String commonConfigFile = "Common.cfg";
         final String PeerInfoConfigFile = "PeerInfo.cfg";
         
-    	Peer me = new Peer();
+    	Peer me = new Peer(peerID, logFileName, commonConfigFileName, peerInfoFileName);
         //me.Connect();
         //me.getFile(); work in progress
         Message myMessage = new Message(5, Message.MessageTypes.unchoke,"Hello");
