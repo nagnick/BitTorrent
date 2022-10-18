@@ -7,7 +7,7 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.UnknownHostException;
 import java.util.Arrays;
-import java.util.regex;
+//import java.util.regex;
 import java.util.Scanner;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.regex.Matcher;
@@ -98,7 +98,7 @@ public class Peer {
         	if(peerInfoMatcher.find()) //only continue if the line is in expected format, otherwise silently ignore the line
         	{
         		int currentPeerID = Integer.parseInt(peerInfoMatcher.group(0));
-        		String peerHostname = peerInfoMatcher.group(1);
+        		String peerHostName = peerInfoMatcher.group(1);
         		int peerListenPort = Integer.parseInt(peerInfoMatcher.group(2));
         		boolean peerHasFile = (peerInfoMatcher.group(3) == "1");
         		
@@ -145,9 +145,10 @@ public class Peer {
         	}
         }
 // use this lambda style if you need to spin up a random thread at any point just dont capture it
+        final int serverPort = serverListenPort;
         serverThread = new Thread(() -> { // listen for other peers wishing to connect with me on seperate thread
             try {
-                ServerSocket listener = new ServerSocket(serverListenPort); // passive listener on own thread
+                ServerSocket listener = new ServerSocket(serverPort); // passive listener on own thread
                 while(true) { // need to add map duplicate insert checks as some peers may try to connect after we have already connected
                     Socket peerSocket = listener.accept(); // this blocks waiting for new connections
                     TCPOut peerOut = new TCPOut(peerSocket); // add to list
@@ -184,9 +185,9 @@ public class Peer {
     	final int peerID = Integer.parseInt(args[0]);  //peerID is specified at time of execution, pull it from args
         final String logFileName = "log_peer_" + args[0] + ".log";
         final String commonConfigFile = "Common.cfg";
-        final String PeerInfoConfigFile = "PeerInfo.cfg";
+        final String peerInfoConfigFile = "PeerInfo.cfg";
         
-    	Peer me = new Peer(peerID, logFileName, commonConfigFileName, peerInfoFileName);
+    	Peer me = new Peer(peerID, logFileName, commonConfigFile, peerInfoConfigFile);
         //me.Connect();
         //me.getFile(); work in progress
         Message myMessage = new Message(5, Message.MessageTypes.unchoke,"Hello");
