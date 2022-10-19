@@ -143,6 +143,7 @@ public class Peer {
 		            }
         		}
         	}
+		currentLineNumber++;
         }
 // use this lambda style if you need to spin up a random thread at any point just dont capture it
         final int serverPort = serverListenPort;
