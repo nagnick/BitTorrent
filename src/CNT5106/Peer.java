@@ -199,5 +199,19 @@ public class Peer {
         System.out.println(Arrays.toString(temp = new Message(128).toBytes()));
         System.out.println(Arrays.toString((myMessage = new Message(temp,true,101)).toBytes()));
         System.out.println(myMessage.toString());
+        
+        //Logger testing
+        Logger myLog = new Logger("myLog2.txt", 7);
+		int[] prefNeighbors = new int[] {3,7,9,1};
+		myLog.logTCPConnection(1003);
+		myLog.logChangePrefNeighbors(prefNeighbors);
+		myLog.logChangeOptUnchokedNeighbor(14);
+		myLog.logUnchoking(15);
+		myLog.logChoking(16);
+		myLog.logRecvHaveMessage(17, 1200);
+		myLog.logRecvIntMessage(18);
+		myLog.logRecvNotIntMessage(19);
+		myLog.logDownloadingPiece(20, 1507, 1659);
+		myLog.logDownloadCompletion();
     }
 }

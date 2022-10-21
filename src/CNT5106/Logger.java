@@ -1,3 +1,4 @@
+package CNT5106;
 import java.io.*;
 import java.time.format.DateTimeFormatter;
 import java.time.LocalDateTime;
@@ -21,14 +22,14 @@ public class Logger {
 		curTime = LocalDateTime.now();
 	}
 	
-	public void writeId()
+	public void logTCPConnection(int peerID2)
 	{
 		curTime = LocalDateTime.now();
 		try
 		{
 			FileWriter myFile = new FileWriter(filePath,true);
 			String output = "";
-			output = formatter.format(curTime)+": "+myPeerID + ": "+"This is " + " Output\n";
+			output = formatter.format(curTime)+": Peer "+myPeerID + " is connected from Peer "+ peerID2 +"\n";
 			myFile.append(output);
 			myFile.close();
 		}
@@ -37,18 +38,159 @@ public class Logger {
 			System.out.println(exception.getMessage());
 		}
 	}
-	public static void main(String args[])
+	public void logChangePrefNeighbors(int [] prefNeighbors)
 	{
-		Logger myLog = new Logger("Bob.txt", 1);
-		System.out.println(myLog.filePath);
-		myLog.writeId();
-		myLog.writeId();
+		String output = "";
+		curTime = LocalDateTime.now();
+		output = formatter.format(curTime)+": Peer "+myPeerID + " has the preferred neighbors ";
+		for(int i = 0; i<prefNeighbors.length-1;i++)
+		{
+			output = output +prefNeighbors[i] +", ";
+		}
+		
+		output = output + prefNeighbors[prefNeighbors.length-1]+"\n";
+		
+		try
+		{
+			FileWriter myFile = new FileWriter(filePath,true);
+			myFile.append(output);
+			myFile.close();
+		}
+		catch (IOException exception)
+		{
+			System.out.println(exception.getMessage());
+		}
 	}
-	
-	//https://www.tutorialspoint.com/java/java_object_classes.htm
-	//https://www.geeksforgeeks.org/java-program-to-write-into-a-file/
-	//https://stackoverflow.com/questions/4871051/how-to-get-the-current-working-directory-in-java
-	//https://stackoverflow.com/questions/4614227/how-to-add-a-new-line-of-text-to-an-existing-file-in-java
-	
+	public void logChangeOptUnchokedNeighbor(int optUnchokedNeighbor)
+	{
+		curTime = LocalDateTime.now();
+		try
+		{
+			FileWriter myFile = new FileWriter(filePath,true);
+			String output = "";
+			output = formatter.format(curTime)+": Peer "+myPeerID + " has the optimistically unchoked neighbor "
+			+ optUnchokedNeighbor +"\n";
+			myFile.append(output);
+			myFile.close();
+		}
+		catch (IOException exception)
+		{
+			System.out.println(exception.getMessage());
+		}
+	}
+	public void logUnchoking(int peerID2)
+	{
+		curTime = LocalDateTime.now();
+		try
+		{
+			FileWriter myFile = new FileWriter(filePath,true);
+			String output = "";
+			output = formatter.format(curTime)+": Peer "+myPeerID + " is unchoked by "+ peerID2 +"\n";
+			myFile.append(output);
+			myFile.close();
+		}
+		catch (IOException exception)
+		{
+			System.out.println(exception.getMessage());
+		}
+	}
+	public void logChoking(int peerID2)
+	{
+		curTime = LocalDateTime.now();
+		try
+		{
+			FileWriter myFile = new FileWriter(filePath,true);
+			String output = "";
+			output = formatter.format(curTime)+": Peer "+myPeerID + " is choked by "+ peerID2 +"\n";
+			myFile.append(output);
+			myFile.close();
+		}
+		catch (IOException exception)
+		{
+			System.out.println(exception.getMessage());
+		}
+	}
+	public void logRecvHaveMessage(int peerID2, int pieceIndex)
+	{
+		curTime = LocalDateTime.now();
+		try
+		{
+			FileWriter myFile = new FileWriter(filePath,true);
+			String output = "";
+			output = formatter.format(curTime)+": Peer "+myPeerID + " received the 'have' message from "
+			+ peerID2 +" for the piece "+ pieceIndex +"\n";
+			myFile.append(output);
+			myFile.close();
+		}
+		catch (IOException exception)
+		{
+			System.out.println(exception.getMessage());
+		}
+	}
+	public void logRecvIntMessage(int peerID2)
+	{
+		curTime = LocalDateTime.now();
+		try
+		{
+			FileWriter myFile = new FileWriter(filePath,true);
+			String output = "";
+			output = formatter.format(curTime)+": Peer "+myPeerID + " received the 'interested' message from "+ peerID2 +"\n";
+			myFile.append(output);
+			myFile.close();
+		}
+		catch (IOException exception)
+		{
+			System.out.println(exception.getMessage());
+		}
+	}
+	public void logRecvNotIntMessage(int peerID2)
+	{
+		curTime = LocalDateTime.now();
+		try
+		{
+			FileWriter myFile = new FileWriter(filePath,true);
+			String output = "";
+			output = formatter.format(curTime)+": Peer "+myPeerID + " received the 'not interested' message from "+ peerID2 +"\n";
+			myFile.append(output);
+			myFile.close();
+		}
+		catch (IOException exception)
+		{
+			System.out.println(exception.getMessage());
+		}
+	}
+	public void logDownloadingPiece(int peerID2, int pieceIndex, int numPieces)
+	{
+		curTime = LocalDateTime.now();
+		try
+		{
+			FileWriter myFile = new FileWriter(filePath,true);
+			String output = "";
+			output = formatter.format(curTime)+": Peer "+myPeerID + " has downloaded the piece "
+			+pieceIndex+" from "+ peerID2 +". Now the number of pieces it has is "+numPieces+"\n";
+			myFile.append(output);
+			myFile.close();
+		}
+		catch (IOException exception)
+		{
+			System.out.println(exception.getMessage());
+		}
+	}
+	public void logDownloadCompletion()
+	{
+		curTime = LocalDateTime.now();
+		try
+		{
+			FileWriter myFile = new FileWriter(filePath,true);
+			String output = "";
+			output = formatter.format(curTime)+": Peer "+myPeerID + " has downloaded the complete file\n";
+			myFile.append(output);
+			myFile.close();
+		}
+		catch (IOException exception)
+		{
+			System.out.println(exception.getMessage());
+		}
+	}
 }
 
