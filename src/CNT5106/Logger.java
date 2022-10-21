@@ -22,6 +22,55 @@ public class Logger {
 		curTime = LocalDateTime.now();
 	}
 	
+	
+	public void logMessage(String type,int peerID2, int [] prefNeighbors,int optUnchokedNeighbor,int pieceIndex, int numPieces)
+	{
+		
+		if(type.equals("TCPConnection"))
+		{
+			logTCPConnection(peerID2);
+		}
+		else if(type.equals("changePrefNeighbors"))
+		{
+			logChangePrefNeighbors(prefNeighbors);
+		}
+		else if(type.equals("changeOptUnchokedNeighbor"))
+		{
+			logChangeOptUnchokedNeighbor(optUnchokedNeighbor);
+		}
+		else if(type.equals("unchoking"))
+		{
+			logUnchoking(peerID2);
+		}
+		else if(type.equals("choking"))
+		{
+			logChoking(peerID2);
+		}
+		else if(type.equals("recvHaveMessage"))
+		{
+			logRecvHaveMessage(peerID2,pieceIndex);
+		}
+		else if(type.equals("recvIntMessage"))
+		{
+			logRecvIntMessage(peerID2);
+		}
+		else if(type.equals("recvNotIntMessage"))
+		{
+			logRecvNotIntMessage(peerID2);
+		}
+		else if(type.equals("downloadingPiece"))
+		{
+			logDownloadingPiece(peerID2, pieceIndex, numPieces);
+		}
+		else if(type.equals("downloadCompletion"))
+		{
+			logDownloadCompletion();
+		}
+		else
+		{
+			System.out.println("Not a valid log type");
+		}
+	}
 	public void logTCPConnection(int peerID2)
 	{
 		curTime = LocalDateTime.now();
