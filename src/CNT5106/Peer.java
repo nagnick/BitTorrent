@@ -1,5 +1,4 @@
 package CNT5106;
-import CNT5106.Message;
 
 import java.io.*;
 import java.net.ConnectException;
@@ -7,7 +6,6 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.UnknownHostException;
 import java.util.Arrays;
-//import java.util.regex;
 import java.util.Scanner;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.regex.Matcher;
@@ -26,7 +24,7 @@ public class Peer {
     int desiredFileSize; //the size of the file we want
     int pieceSize; //the size of the pieces of the file we want
     boolean haveFile; //indicate if I have entire file or not
-
+	Logger logger;
     Thread serverThread;
     LinkedBlockingQueue<Message> inbox = new LinkedBlockingQueue<Message>(); // all recev tcp threads write to here
     ConcurrentHashMap<Integer,TCPIn> peerInConnections = new ConcurrentHashMap<Integer, TCPIn>(); // have these peers add messages to a thread safe queue
@@ -42,7 +40,8 @@ public class Peer {
         this.logFileName = logFileName;
         this.commonConfigFileName = commonConfigFileName;
         this.peerInfoFileName = peerInfoFileName;
-        
+        logger = new Logger(logFileName,myID); // initialize logger
+
         //read in the common config file and set the other attributes for the peer.
     	Pattern prefNeighborsRegex = Pattern.compile("^(NUmberOfPreferredNeighbors)\\s(\\d{1,})$", Pattern.CASE_INSENSITIVE); //regex pattern for number of preferred neighbors config directive
     	Pattern unchokingIntervalRegex = Pattern.compile("^(UnchokingInterval)\\s(\\d{1,})$", Pattern.CASE_INSENSITIVE); //regex pattern for unchoking interval config directive
@@ -148,21 +147,33 @@ public class Peer {
 // use this lambda style if you need to spin up a random thread at any point just dont capture it
         final int serverPort = serverListenPort;
         serverThread = new Thread(() -> { // listen for other peers wishing to connect with me on seperate thread
-            try {
+            try { // fix this and connection phase to avoid duplicate connections
                 ServerSocket listener = new ServerSocket(serverPort); // passive listener on own thread
                 while(true) { // need to add map duplicate insert checks as some peers may try to connect after we have already connected
                     Socket peerSocket = listener.accept(); // this blocks waiting for new connections
                     TCPOut peerOut = new TCPOut(peerSocket); // add to list
                     TCPIn peerIn = new TCPIn(inbox, peerSocket); // add to list
-                    peerOut.send(new Message(myID));// send handshake
-                    Message peerHandshake = peerIn.getHandShake();
+					// ensure this order is respected by both client and server to avoid deadlock
+					peerOut.send(new Message(myID));// send handshake
+                    Message peerHandshake = peerIn.getHandShake(); // get handshake
 
                     peerIn.setPeerId(peerHandshake.peerID); // set peerID for tracking of message origin in message queue
                     peerOut.setPeerId(peerHandshake.peerID);
 
                     peerIn.start(); // start that peers thread
-                    peerInConnections.put(peerHandshake.peerID, peerIn);
-                    peerOutConnections.put(peerHandshake.peerID, peerOut);
+					if(peerOutConnections.get(peerHandshake.peerID) == null) { // if not in map put in
+						peerOutConnections.put(peerHandshake.peerID, peerOut);
+						logger.logTCPConnection(peerHandshake.peerID); // new connection log it
+					}
+					else{ // if in map don't need two connections to peer so close it
+						peerOut.close();
+					}
+					if(peerInConnections.get(peerHandshake.peerID) == null) { // if not in map put in
+						peerInConnections.put(peerHandshake.peerID, peerIn);
+					}
+					else{ // if in map don't need two connections to peer so close it
+						peerIn.close();
+					}
                 }
             }
             catch (Exception e){
@@ -172,14 +183,58 @@ public class Peer {
         serverThread.start();
 
     }
-    public boolean getFile(){ // actual work done here
+	private void processMessage(Message message){
+		// process each message depending on their type
+		switch (message.type.ordinal()){
+			case(0)-> processChokeMessage(message);
+			case(1)-> processUnchokeMessage(message);
+			case(2)-> processInterestedMessage(message);
+			case(3)-> processNotInterestedMessage(message);
+			case(4)-> processHaveMessage(message);
+			case(5)-> processBitfieldMessage(message);
+			case(6)-> processRequestMessage(message);
+			case(7)-> processPieceMessage(message);
+			default -> throw new RuntimeException("Unexpected message type in processMessage\n");
+		}
+	}
+	private void processChokeMessage(Message message){
+		logger.logChoking(message.peerID);
+	}
+	private void processUnchokeMessage(Message message){
+		logger.logUnchoking(message.peerID);
+	}
+	private void processInterestedMessage(Message message){
+		logger.logRecvIntMessage(message.peerID);
+	}
+	private void processNotInterestedMessage(Message message){
+		logger.logRecvNotIntMessage(message.peerID);
+	}
+	private void processHaveMessage(Message message){
+		logger.logRecvHaveMessage(message.peerID,Integer.parseInt(message.payload)); // probably have to fix payload always int?
+	}
+	private void processBitfieldMessage(Message message){
+		//logger.lo no logger method for bitfield
+	}
+	private void processRequestMessage(Message message){
+		//logger.lo no logger method for Request messages
+	}
+	private void processPieceMessage(Message message){
+		logger.logDownloadingPiece(message.peerID, -1,-1); // fix to parse message payload into required fields
+	}
+    public void run(){ // file retrieval and peer file distribution done here
         // start main process of asking peers for bytes of file
-        while(!inbox.isEmpty()){ // add && file is incomplete
+        while(true){ // add && file is incomplete
             //process messages and respond appropriately
-            System.out.println(inbox.peek().type.toString());
-            inbox.remove();
+			if(!inbox.isEmpty()) {
+				processMessage(inbox.peek());
+				System.out.println(inbox.peek().type.toString());
+				inbox.remove();
+			}
+			if(haveFile){
+				logger.logDownloadCompletion();
+				break; // exit job complete? ro do i keep running to help other peers
+			}
         }
-        return false; // failed to get all bytes of file from network
     }
     public static void main(String args[])
     {
@@ -189,14 +244,16 @@ public class Peer {
         final String peerInfoConfigFile = "PeerInfo.cfg";
         
     	Peer me = new Peer(peerID, logFileName, commonConfigFile, peerInfoConfigFile);
-        //me.Connect();
-        //me.getFile(); work in progress
+        me.Connect();
+        //me.run(); work in progress
+
+		// message class testing
         Message myMessage = new Message(5, Message.MessageTypes.unchoke,"Hello");
         byte[] temp = myMessage.toBytes();
         System.out.println(Arrays.toString(temp));
         System.out.println(Arrays.toString((myMessage = new Message(temp,false,100)).toBytes()));
         System.out.println(myMessage.toString());
-        System.out.println(Arrays.toString(temp = new Message(128).toBytes()));
+        System.out.println(Arrays.toString(temp = new Message(-10000).toBytes()));
         System.out.println(Arrays.toString((myMessage = new Message(temp,true,101)).toBytes()));
         System.out.println(myMessage.toString());
         

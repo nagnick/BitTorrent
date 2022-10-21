@@ -22,7 +22,7 @@ public class TCPIn extends Thread{ // spinning thread waiting for peer messages
         }
     }
     public Message getHandShake(){ // use before starting thread and only once will fail if anyother message
-        byte[] messageBytes = {0,0,0,0}; // puts a zero int in message if bellow fails
+        byte[] messageBytes = {0,0,0,0,0,0,0,0,0}; // puts a zero int in message if bellow fails
         try {
             messageBytes = in.readNBytes(32);
         }
@@ -35,6 +35,7 @@ public class TCPIn extends Thread{ // spinning thread waiting for peer messages
         try {
             // tcp network stuff
             while(!connection.isClosed()) { // testing required
+                // read bytes and create message to put in message queue inbox
                 ByteBuffer lengthBuff = ByteBuffer.allocate(4).order(ByteOrder.BIG_ENDIAN);
                 int messageLength = lengthBuff.put(in.readNBytes(4)).get(0);
                 ByteBuffer message = ByteBuffer.allocate(5+messageLength).order(ByteOrder.BIG_ENDIAN);

@@ -19,7 +19,7 @@ public class Message {
     int length; // 4 bytes does not include itself first part in message
     MessageTypes type; // 1 byte second part in message
     String payload; // variable size message payload last in message
-    String handShake = "P2PFILESHARINGPROJ0000000000"; // handshake only field fix to have the zeros actual bytes not chars
+    String handShake = "P2PFILESHARINGPROJ";
     int peerID; // handshake only field maybe useful in message queue!!!! to know what came from what
     public Message(int length,MessageTypes type,String payload){ // make any other message
         this.length = length;
@@ -57,6 +57,10 @@ public class Message {
         if(type == MessageTypes.handShake){
             ByteBuffer mybuff = ByteBuffer.allocate(32).order(ByteOrder.BIG_ENDIAN); // is this right little endian
             mybuff.put(handShake.getBytes());
+            mybuff.position(18).put((byte)0); // puts 1 zero
+            mybuff.position(19).put((byte)0); // puts 1 zero
+            mybuff.position(20).putInt(0); // puts 4 zeros
+            mybuff.position(24).putInt(0); // puts 4 zeros total 10 zeros in byte array output
             mybuff.position(28).putInt(peerID);
             return mybuff.array();
         }
@@ -74,7 +78,8 @@ public class Message {
     public String toString() {
         String myString;
         if(type == MessageTypes.handShake) {
-            myString = "HandShakeHeader: " + handShake +" PeerID: " + peerID;
+            myString = "HandShakeHeader: " + handShake + "0000000000" +
+                    " PeerID: " + peerID;
         }
         else{
            myString = "Length: " +length +" Type: "+ type.toString()+" Payload: " + payload;
