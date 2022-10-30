@@ -5,20 +5,24 @@ import java.net.ConnectException;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.UnknownHostException;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Iterator;
 import java.util.Scanner;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.Timer;
+import java.util.TimerTask;
 
-public class Peer {
+public class Peer{
     Integer myID; //ID of this peer
     String logFileName; //the name of the file this peer should be logging to
     String commonConfigFileName; //the common config file name
     String peerInfoFileName; //the peer info file name
-    int numPreferredNeighbors; //number of preferred neighbors this peer should have
-    int unchokingInterval;
+    int numPreferredPeers; //number of preferred peers this peer should have
+    int unchokingInterval; // in seconds
     int optimisticUnchokingInterval;
     String desiredFileName; //the file we are trying to get
     int desiredFileSize; //the size of the file we want
@@ -26,21 +30,26 @@ public class Peer {
     boolean haveFile; //indicate if I have entire file or not
 	Logger logger;
     Thread serverThread;
+	Timer timer;
+	UnchokeTimer optimisticTimer;
+	UnchokeTimer regularTimer;
+	ArrayList<Integer> preferredPeers; // will hold numPreferredPeers
+	int optimisticPeer; // will hold random peer note this peer may also be a preferred peer after a regular time period
     LinkedBlockingQueue<Message> inbox = new LinkedBlockingQueue<Message>(); // all recev tcp threads write to here
     ConcurrentHashMap<Integer,TCPIn> peerInConnections = new ConcurrentHashMap<Integer, TCPIn>(); // have these peers add messages to a thread safe queue
     ConcurrentHashMap<Integer,TCPOut> peerOutConnections = new ConcurrentHashMap<Integer, TCPOut>(); // peer connections to send messages
     ConcurrentHashMap<Integer,Boolean> peerFileMap = new ConcurrentHashMap<Integer, Boolean>(); // map peer IDs to status of having file or not
-    
-    public Peer(){ //default constructor, normally shouldn't use this
-        myID = -1; //set a default ID for self.
-    }
-    
+
     public Peer(int peerID, String logFileName, String commonConfigFileName, String peerInfoFileName) {
         myID = peerID;
         this.logFileName = logFileName;
         this.commonConfigFileName = commonConfigFileName;
         this.peerInfoFileName = peerInfoFileName;
         logger = new Logger(logFileName,myID); // initialize logger
+		timer = new Timer(); // init new timer
+		optimisticTimer = new UnchokeTimer(this,true); // timer tasks that call timerUp method of peer class
+		regularTimer = new UnchokeTimer(this,false);
+
 
         //read in the common config file and set the other attributes for the peer.
     	Pattern prefNeighborsRegex = Pattern.compile("^(NUmberOfPreferredNeighbors)\\s(\\d{1,})$", Pattern.CASE_INSENSITIVE); //regex pattern for number of preferred neighbors config directive
@@ -56,7 +65,7 @@ public class Peer {
     		String configLine = configFile.nextLine(); //pull in the config line
     		if(prefNeighborsRegex.matcher(configLine).find()) //config line is for number of preferred neighbors
     		{
-    			this.numPreferredNeighbors = Integer.parseInt(prefNeighborsRegex.matcher(configLine).group(1)); //extract the value for config directive from regex, cast to int, and store it.
+    			this.numPreferredPeers = Integer.parseInt(prefNeighborsRegex.matcher(configLine).group(1)); //extract the value for config directive from regex, cast to int, and store it.
     		}
     		else if(unchokingIntervalRegex.matcher(configLine).find())
     		{
@@ -81,6 +90,31 @@ public class Peer {
     	}
     	configFile.close(); //we're done with the common config file, close it out.
     }
+	public void timerUp(boolean optimistic){
+		if (optimistic){
+			// set optimistic unchoke peer
+			//optimisticPeer = random peer
+		}else{
+			// set regular unchoke peers
+			//numPreferredPeers
+			//preferredPeers.add(0,);
+			// choose based on download rate???? only regular timer computes download rate(key to accurate download rate computation)
+			// peerId key map value holds the amount of messages received paired with the total # of time intervals run
+			// each data message increments that peers # of messages
+			// each regular timer up recalculates all peer download rates
+			// top numPreferredPeers become new preferred peers
+		}
+	}
+	public void setAndRunTimer(boolean optimistic){ // the scheduled task runs constantly after each period is up
+		if (optimistic){
+			// set optimistic unchoke timer
+			timer.schedule(optimisticTimer,0,(long)(optimisticUnchokingInterval)*1000); // milli to seconds
+
+		}else{
+			// set regular unchoke timer
+			timer.schedule(regularTimer,0,(long)(unchokingInterval)*1000); // milli to seconds
+		}
+	}
     
     public void Connect(){ // parse manifest file and connect to peers
     	Scanner peerInfoFile = new Scanner(peerInfoFileName);
@@ -182,6 +216,11 @@ public class Peer {
         });
         serverThread.start();
 
+		setAndRunTimer(true); // start timers
+		setAndRunTimer(false);
+		// init perferred peer array with peers we have connected to..
+		//preferredPeers.add(0,); // how to fill???? for initial run
+
     }
 	private void processMessage(Message message){
 		// process each message depending on their type
@@ -197,11 +236,15 @@ public class Peer {
 			default -> throw new RuntimeException("Unexpected message type in processMessage\n");
 		}
 	}
-	private void processChokeMessage(Message message){
+	private void processChokeMessage(Message message){ // DO
+
 		logger.logChoking(message.peerID);
+
 	}
-	private void processUnchokeMessage(Message message){
+	private void processUnchokeMessage(Message message){ // DO
+
 		logger.logUnchoking(message.peerID);
+
 	}
 	private void processInterestedMessage(Message message){
 		logger.logRecvIntMessage(message.peerID);
