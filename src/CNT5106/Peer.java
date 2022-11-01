@@ -27,7 +27,9 @@ public class Peer{
     String desiredFileName; //the file we are trying to get
     int desiredFileSize; //the size of the file we want
     int pieceSize; //the size of the pieces of the file we want
+    int numPieces; //the total number of pieces of the file, used as part of bitfield logic.
     boolean haveFile; //indicate if I have entire file or not
+    boolean havePieces[]; //track what pieces I have by index value
 	Logger logger;
     Thread serverThread;
 	Timer timer;
@@ -39,6 +41,7 @@ public class Peer{
     ConcurrentHashMap<Integer,TCPIn> peerInConnections = new ConcurrentHashMap<Integer, TCPIn>(); // have these peers add messages to a thread safe queue
     ConcurrentHashMap<Integer,TCPOut> peerOutConnections = new ConcurrentHashMap<Integer, TCPOut>(); // peer connections to send messages
     ConcurrentHashMap<Integer,Boolean> peerFileMap = new ConcurrentHashMap<Integer, Boolean>(); // map peer IDs to status of having file or not
+    ConcurrentHashMap<Integer,Boolean[]> peerPieceMap = new ConcurrentHashMap<Integer, Boolean[]>(); //map peer IDs to boolean arrays indicating if it has piece
 
     public Peer(int peerID, String logFileName, String commonConfigFileName, String peerInfoFileName) {
         myID = peerID;
@@ -89,6 +92,9 @@ public class Peer{
     		}
     	}
     	configFile.close(); //we're done with the common config file, close it out.
+    	numPieces = int(Math.ceil(double(desiredFileSize)/double(pieceSize)));
+		this.havePieces = new boolean[numPieces]; //init the pieces array to track what pieces we have
+		Arrays.fill(havePieces, haveFile); //set the initial values of the pieces array based on whether we've got the entire file.
     }
 	public void timerUp(boolean optimistic){
 		if (optimistic){
@@ -248,12 +254,35 @@ public class Peer{
 	}
 	private void processInterestedMessage(Message message){
 		logger.logRecvIntMessage(message.peerID);
+		boolean peerPieces[] = peerPieceMap.get(message.peerID); //retrieve the current mapping of what pieces we think peer has
+		boolean newPeerPieceMap[] = new boolean[numPieces];
+		for(int i=0; i<numPieces; i++) //figure out what pieces from me peer already has
+		{
+			newPeerPieceMap[i] = peerPieces[i] & havePieces[i];
+		}
+		for(int i=0; i<numPieces; i++) //figure out what pieces peer has that aren't from me
+		{
+			newPeerPieceMap[i] = newPeerPieceMap[i] | peerPieces[i];
+		}
+		peerPieceMap.put(message.peerID, newPeerPieceMap); //update the peer's piece mapping
 	}
 	private void processNotInterestedMessage(Message message){
 		logger.logRecvNotIntMessage(message.peerID);
+		boolean peerPieces[] = peerPieceMap.get(message.peerID); //retrieve the current mapping of what pieces we think peer has
+		boolean newPeerPieceMap[] = new boolean[numPieces];
+		for(int i=0; i<numPieces; i++) //peer has all of my pieces, so OR what I think it has with what I have.
+		{
+			newPeerPieceMap[i] = peerPieces[i] | havePieces[i];
+		}
+		peerPieceMap.put(message.peerID, newPeerPieceMap);  //update the peer's piece mapping
 	}
 	private void processHaveMessage(Message message){
 		logger.logRecvHaveMessage(message.peerID,Integer.parseInt(message.payload)); // probably have to fix payload always int?
+		int pieceIndex = Integer.parseInt(message.payload);
+		boolean peerPieces[] = peerPieceMap.get(message.peerID);
+		boolean newPeerPieceMap[] = Arrays.copyOf(peerPieces, numPieces); //create copy of the peer's piece map so we don't modify existing one
+		newPeerPieceMap[pieceIndex] = true; //set the piece the peer says it has to true
+		peerPieceMap.put(message.peerID, newPeerPieceMap);
 	}
 	private void processBitfieldMessage(Message message){
 		//logger.lo no logger method for bitfield
