@@ -48,6 +48,7 @@ public class PeerTCPConnection extends Thread{ // spinning thread waiting for pe
                 message.put(4,in.readNBytes(1));
                 message.put(5,in.readNBytes(messageLength));
                 inbox.put(new Message(message.array(),false,peerID));
+                incrementTotalInMessages(); // used to track download rate for choking/unchoking
             }
         }
         catch (Exception e) {
@@ -78,8 +79,8 @@ public class PeerTCPConnection extends Thread{ // spinning thread waiting for pe
     public void setPeerId(int ID){
         peerID = ID;
     }
-    public void setTotalTimeUnChoked(int newValue){
-        totalTimeUnChoked = newValue;
+    public void incrementTotalTimeUnChoked(int value){
+        totalTimeUnChoked += value;
     }
     public int getTotalTimeUnChoked(){
         return totalTimeUnChoked;

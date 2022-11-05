@@ -9,6 +9,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Objects;
+import java.util.Random;
 import java.util.Scanner;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.regex.Matcher;
@@ -41,7 +42,7 @@ public class Peer{
     HashMap<Integer,PeerTCPConnection> peerTCPConnections = new HashMap<Integer, PeerTCPConnection>(); // holds all peer tcp connections
     ConcurrentHashMap<Integer,Boolean> peerFileMap = new ConcurrentHashMap<Integer, Boolean>(); // map peer IDs to status of having file or not
     ConcurrentHashMap<Integer,Boolean[]> peerPieceMap = new ConcurrentHashMap<Integer, Boolean[]>(); //map peer IDs to boolean arrays indicating if it has piece
-
+	Random rand;
     public Peer(int peerID, String logFileName, String commonConfigFileName, String peerInfoFileName) {
         myID = peerID;
         this.logFileName = logFileName;
@@ -49,6 +50,7 @@ public class Peer{
         this.peerInfoFileName = peerInfoFileName;
         logger = new Logger(logFileName,myID); // initialize logger
 		timer = new Timer(); // init new timer
+		rand = new Random(); // init random num generator
 		optimisticTimer = new UnchokeTimer(this,true); // timer tasks that call timerUp method of peer class
 		regularTimer = new UnchokeTimer(this,false);
 
@@ -96,9 +98,16 @@ public class Peer{
 		Arrays.fill(havePieces, haveFile); //set the initial values of the pieces array based on whether we've got the entire file.
     }
 	public void timerUp(boolean optimistic){
+		Message unchoke = new Message(0, Message.MessageTypes.unchoke,"");
+		Message choke = new Message(0, Message.MessageTypes.choke,"");
+		Object[] keys = peerTCPConnections.keySet().toArray(); // get keys in map currently
+		//FIX DON'T CHOKE/UNCHOKE PEERS ALREADY IN THAT STATE
+		//FIX ERROR IN DUPLICATE TIME ADDS IF PEER IS IN PERFERED PEERS AND OPTIMISTIC PEER
 		if (optimistic){
-			// set optimistic unchoke peer
-			//optimisticPeer = random peer
+			int i = rand.nextInt(keys.length); // random index [0 - keys.length-1]
+			peerTCPConnections.get(optimisticPeer).send(choke); // choke peer before setting new one
+			optimisticPeer = (Integer)keys[i];
+			peerTCPConnections.get(optimisticPeer).send(unchoke); // unchoke new peer
 		}else{
 			// set regular unchoke peers
 			//numPreferredPeers
@@ -108,6 +117,24 @@ public class Peer{
 			// each data message increments that peers # of messages
 			// each regular timer up recalculates all peer download rates
 			// top numPreferredPeers become new preferred peers
+			// FIX MUST CHOOSE BASED ON DOWNLOAD RATE = (totalInMessages/totalTimeUnchoked) update time before calculation
+			//FIX DON'T CHOKE/UNCHOKE PEERS ALREADY IN THAT STATE
+			for(int i = 0; i < preferredPeers.size(); i++){ // remove current prefered peers
+				PeerTCPConnection current = peerTCPConnections.get(preferredPeers.get(i));
+				current.incrementTotalTimeUnChoked(5);
+				current.send(choke);
+			}
+			preferredPeers = new ArrayList<Integer>(); // set up new array list for next set of prefered peers
+			for(int i = 0; i < numPreferredPeers && i < keys.length; i++) {
+				preferredPeers.add(0, (Integer)(keys[i])); // fill with peers with best download rate
+				peerTCPConnections.get((Integer)keys[i]).send(unchoke); // unchoke since it is a prefered peer now
+			}
+			if(numPreferredPeers + 1 < keys.length ){ // if enough to have all peers be unique
+				optimisticPeer = (Integer)keys[numPreferredPeers+1];
+				peerTCPConnections.get((Integer)keys[numPreferredPeers+1]).send(unchoke); // unchoke since it is a prefered peer
+			}else if(keys.length > 1){ // repeat first peer if there aren't enough for optimistic unchoke peer so not empty
+				optimisticPeer = (Integer)keys[0];
+			}
 		}
 	}
 	public void setAndRunTimer(boolean optimistic){ // the scheduled task runs constantly after each period is up
@@ -215,9 +242,19 @@ public class Peer{
 
 		setAndRunTimer(true); // start timers
 		setAndRunTimer(false);
-		// init perferred peer array with peers we have connected to..
-		//preferredPeers.add(0,); // how to fill???? for initial run
-
+		// init perferred peer array with peers we have connected to...
+		Object[] keys = peerTCPConnections.keySet().toArray(); // get keys in map currently
+		Message unchoke = new Message(0, Message.MessageTypes.unchoke,"");
+		for(int i = 0; i < numPreferredPeers && i < keys.length; i++) {
+			preferredPeers.add(0, (Integer)(keys[i])); // fill with first keys in map "Random selection"
+			peerTCPConnections.get((Integer)keys[i]).send(unchoke); // unchoke since it is a prefered peer
+		}
+		if(numPreferredPeers + 1 < keys.length ){ // if enough to have all peers be unique
+			optimisticPeer = (Integer)keys[numPreferredPeers+1];
+			peerTCPConnections.get((Integer)keys[numPreferredPeers+1]).send(unchoke); // unchoke since it is a prefered peer
+		}else if(keys.length > 1){ // repeat first peer if there aren't enough for optimistic unchoke peer so not empty
+			optimisticPeer = (Integer)keys[0];
+		}
     }
 	private void processMessage(Message message){
 		// process each message depending on their type
@@ -233,12 +270,12 @@ public class Peer{
 			default -> throw new RuntimeException("Unexpected message type in processMessage\n");
 		}
 	}
-	private void processChokeMessage(Message message){ // DO
+	private void processChokeMessage(Message message){ // Work in progress -Nick
 
 		logger.logChoking(message.peerID);
 
 	}
-	private void processUnchokeMessage(Message message){ // DO
+	private void processUnchokeMessage(Message message){ // Work in progress -Nick
 
 		logger.logUnchoking(message.peerID);
 
