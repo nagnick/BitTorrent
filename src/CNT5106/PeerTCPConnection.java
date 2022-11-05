@@ -1,24 +1,29 @@
 package CNT5106;
 
 import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.net.Socket;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.concurrent.LinkedBlockingQueue;
 
-public class TCPIn extends Thread{ // spinning thread waiting for peer messages
+public class PeerTCPConnection extends Thread{ // spinning thread waiting for peer messages
     LinkedBlockingQueue<Message> inbox;
     Socket connection;
     ObjectInputStream in;
+    ObjectOutputStream out;
      int peerID;
-    public TCPIn(LinkedBlockingQueue<Message> inbox, Socket connection){ // pass in peer info to form tcp connection
+     int totalInMessages = 0;
+     int totalTimeUnChoked = 0;
+    public PeerTCPConnection(LinkedBlockingQueue<Message> inbox, Socket connection){ // pass in peer info to form tcp connection
         this.inbox = inbox;
         this.connection = connection;
         try {
+            out = new ObjectOutputStream(connection.getOutputStream());
             in = new ObjectInputStream(connection.getInputStream());
         }
         catch(Exception e){
-            System.out.println("Error creating TCPIN ");
+            System.out.println("Error creating TCP connection ");
         }
     }
     public Message getHandShake(){ // use before starting thread and only once will fail if anyother message
@@ -49,16 +54,40 @@ public class TCPIn extends Thread{ // spinning thread waiting for peer messages
             System.out.println("Error running TCPIn thread");
         }
     }
+    public boolean send(Message message){
+        System.out.println("Sending message: " + String.valueOf(message));
+        try {
+            out.write(message.toBytes());
+        }
+        catch (Exception e){
+            System.out.println("Error writing bytes in send method");
+        }
+        return false;
+    }
     public void close(){
         try {
             connection.close();
             in.close();
+            out.flush();
+            out.close();
         }
         catch (Exception e){
-            System.out.println("Error closing TCP IN connection");
+            System.out.println("Error closing TCP connection");
         }
     }
     public void setPeerId(int ID){
         peerID = ID;
+    }
+    public void setTotalTimeUnChoked(int newValue){
+        totalTimeUnChoked = newValue;
+    }
+    public int getTotalTimeUnChoked(){
+        return totalTimeUnChoked;
+    }
+    public void incrementTotalInMessages(){
+        totalInMessages++;
+    }
+    public int getTotalInMessages(){
+        return totalInMessages;
     }
 }

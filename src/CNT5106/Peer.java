@@ -7,14 +7,14 @@ import java.net.Socket;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Iterator;
+import java.util.HashMap;
+import java.util.Objects;
 import java.util.Scanner;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.Timer;
-import java.util.TimerTask;
 
 public class Peer{
     Integer myID; //ID of this peer
@@ -38,8 +38,7 @@ public class Peer{
 	ArrayList<Integer> preferredPeers; // will hold numPreferredPeers
 	int optimisticPeer; // will hold random peer note this peer may also be a preferred peer after a regular time period
     LinkedBlockingQueue<Message> inbox = new LinkedBlockingQueue<Message>(); // all recev tcp threads write to here
-    ConcurrentHashMap<Integer,TCPIn> peerInConnections = new ConcurrentHashMap<Integer, TCPIn>(); // have these peers add messages to a thread safe queue
-    ConcurrentHashMap<Integer,TCPOut> peerOutConnections = new ConcurrentHashMap<Integer, TCPOut>(); // peer connections to send messages
+    HashMap<Integer,PeerTCPConnection> peerTCPConnections = new HashMap<Integer, PeerTCPConnection>(); // holds all peer tcp connections
     ConcurrentHashMap<Integer,Boolean> peerFileMap = new ConcurrentHashMap<Integer, Boolean>(); // map peer IDs to status of having file or not
     ConcurrentHashMap<Integer,Boolean[]> peerPieceMap = new ConcurrentHashMap<Integer, Boolean[]>(); //map peer IDs to boolean arrays indicating if it has piece
 
@@ -92,7 +91,7 @@ public class Peer{
     		}
     	}
     	configFile.close(); //we're done with the common config file, close it out.
-    	numPieces = int(Math.ceil(double(desiredFileSize)/double(pieceSize)));
+    	numPieces = (int)(Math.ceil((double)(desiredFileSize)/(double)(pieceSize)));
 		this.havePieces = new boolean[numPieces]; //init the pieces array to track what pieces we have
 		Arrays.fill(havePieces, haveFile); //set the initial values of the pieces array based on whether we've got the entire file.
     }
@@ -139,7 +138,7 @@ public class Peer{
         		int currentPeerID = Integer.parseInt(peerInfoMatcher.group(0));
         		String peerHostName = peerInfoMatcher.group(1);
         		int peerListenPort = Integer.parseInt(peerInfoMatcher.group(2));
-        		boolean peerHasFile = (peerInfoMatcher.group(3) == "1");
+        		boolean peerHasFile = (Objects.equals(peerInfoMatcher.group(3), "1"));
         		
         		if(currentPeerID == myID)
         		{
@@ -157,17 +156,15 @@ public class Peer{
 		            	if(!isFirstPeer) //only try to connect when we're not the first peer
 		            	{
 			                Socket peerSocket = new Socket(peerHostName, peerListenPort); // connect to a peer
-			                TCPOut peerOut = new TCPOut(peerSocket); // add to list
-			                TCPIn peerIn = new TCPIn(inbox,peerSocket); // add to list
-			                peerOut.send(new Message(myID));// send handshake
-			                Message peerHandshake = peerIn.getHandShake();
+			                PeerTCPConnection peerConnection = new PeerTCPConnection(inbox,peerSocket); // new connection
+			                peerConnection.send(new Message(myID));// send handshake always first step
+			                Message peerHandshake = peerConnection.getHandShake(); // receive response handshake always second step
 			
-			                peerIn.setPeerId(peerHandshake.peerID); // set peerID for tracking of message origin in message queue
-			                peerOut.setPeerId(peerHandshake.peerID); // important later when messages are mixed in queue to track their origin
+			                peerConnection.setPeerId(peerHandshake.peerID); // set peerID for tracking of message origin in message queue
+			                 // important later when messages are mixed in queue to track their origin
 			
-			                peerIn.start(); // start that peers thread
-			                peerInConnections.put(peerHandshake.peerID,peerIn);
-			                peerOutConnections.put(peerHandshake.peerID,peerOut);
+			                peerConnection.start(); // start that peers reading thread
+			                peerTCPConnections.put(peerHandshake.peerID,peerConnection);
 		            	}
 		            	peerFileMap.put(currentPeerID, peerHasFile); //still build the map of which peers have what files.
 		            }
@@ -190,29 +187,23 @@ public class Peer{
             try { // fix this and connection phase to avoid duplicate connections
                 ServerSocket listener = new ServerSocket(serverPort); // passive listener on own thread
                 while(true) { // need to add map duplicate insert checks as some peers may try to connect after we have already connected
-                    Socket peerSocket = listener.accept(); // this blocks waiting for new connections
-                    TCPOut peerOut = new TCPOut(peerSocket); // add to list
-                    TCPIn peerIn = new TCPIn(inbox, peerSocket); // add to list
-					// ensure this order is respected by both client and server to avoid deadlock
-					peerOut.send(new Message(myID));// send handshake
-                    Message peerHandshake = peerIn.getHandShake(); // get handshake
+                    Socket peerSocket = listener.accept(); // this blocks waiting for new connections so must be on own thread
+					PeerTCPConnection peerConnection = new PeerTCPConnection(inbox,peerSocket); // new connection
+					peerConnection.send(new Message(myID));// send handshake always first step
+					Message peerHandshake = peerConnection.getHandShake(); // receive response handshake always second step
 
-                    peerIn.setPeerId(peerHandshake.peerID); // set peerID for tracking of message origin in message queue
-                    peerOut.setPeerId(peerHandshake.peerID);
+					peerConnection.setPeerId(peerHandshake.peerID); // set peerID for tracking of message origin in message queue
+					// important later when messages are mixed in queue to track their origin
 
-                    peerIn.start(); // start that peers thread
-					if(peerOutConnections.get(peerHandshake.peerID) == null) { // if not in map put in
-						peerOutConnections.put(peerHandshake.peerID, peerOut);
+					peerConnection.start(); // start that peers reading thread
+					peerTCPConnections.put(peerHandshake.peerID,peerConnection);
+					//THIS LOGIC MUST BE TESTED HOW DOES OTHER PEER KNOW IT IS DUPLICATE CONNECTION????
+					if(peerTCPConnections.get(peerHandshake.peerID) == null) { // if not in map put in
+						peerTCPConnections.put(peerHandshake.peerID, peerConnection);
 						logger.logTCPConnection(peerHandshake.peerID); // new connection log it
 					}
 					else{ // if in map don't need two connections to peer so close it
-						peerOut.close();
-					}
-					if(peerInConnections.get(peerHandshake.peerID) == null) { // if not in map put in
-						peerInConnections.put(peerHandshake.peerID, peerIn);
-					}
-					else{ // if in map don't need two connections to peer so close it
-						peerIn.close();
+						peerConnection.close();
 					}
                 }
             }
