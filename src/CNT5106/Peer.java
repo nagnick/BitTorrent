@@ -282,8 +282,8 @@ public class Peer{
 	}
 	private void processInterestedMessage(Message message){
 		logger.logRecvIntMessage(message.peerID);
-		boolean peerPieces[] = peerPieceMap.get(message.peerID); //retrieve the current mapping of what pieces we think peer has
-		boolean newPeerPieceMap[] = new boolean[numPieces];
+		Boolean peerPieces[] = peerPieceMap.get(message.peerID); //retrieve the current mapping of what pieces we think peer has
+		Boolean newPeerPieceMap[] = new Boolean[numPieces];
 		for(int i=0; i<numPieces; i++) //figure out what pieces from me peer already has
 		{
 			newPeerPieceMap[i] = peerPieces[i] & havePieces[i];
@@ -296,8 +296,8 @@ public class Peer{
 	}
 	private void processNotInterestedMessage(Message message){
 		logger.logRecvNotIntMessage(message.peerID);
-		boolean peerPieces[] = peerPieceMap.get(message.peerID); //retrieve the current mapping of what pieces we think peer has
-		boolean newPeerPieceMap[] = new boolean[numPieces];
+		Boolean peerPieces[] = peerPieceMap.get(message.peerID); //retrieve the current mapping of what pieces we think peer has
+		Boolean newPeerPieceMap[] = new Boolean[numPieces];
 		for(int i=0; i<numPieces; i++) //peer has all of my pieces, so OR what I think it has with what I have.
 		{
 			newPeerPieceMap[i] = peerPieces[i] | havePieces[i];
@@ -307,8 +307,8 @@ public class Peer{
 	private void processHaveMessage(Message message){
 		logger.logRecvHaveMessage(message.peerID,Integer.parseInt(message.payload)); // probably have to fix payload always int?
 		int pieceIndex = Integer.parseInt(message.payload);
-		boolean peerPieces[] = peerPieceMap.get(message.peerID);
-		boolean newPeerPieceMap[] = Arrays.copyOf(peerPieces, numPieces); //create copy of the peer's piece map so we don't modify existing one
+		Boolean peerPieces[] = peerPieceMap.get(message.peerID);
+		Boolean newPeerPieceMap[] = Arrays.copyOf(peerPieces, numPieces); //create copy of the peer's piece map so we don't modify existing one
 		newPeerPieceMap[pieceIndex] = true; //set the piece the peer says it has to true
 		peerPieceMap.put(message.peerID, newPeerPieceMap);
 	}
