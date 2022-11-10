@@ -314,11 +314,34 @@ public class Peer{
 	}
 	private void processBitfieldMessage(Message message){
 		//logger.lo no logger method for bitfield
+		boolean peerBitfield[] = new boolean[message.payload.length()];
+		for(int i =  0; i< message.payload.length();i++)
+		{
+			if(message.payload.charAt(i) =='1')
+			{
+				peerBitfield[i]= true;
+			}else
+			{
+				peerBitfield[i] = false;
+			}
+		}
+		peerPieceMap.put(message.peerID, peerBitfield);
 	}
 	private void processRequestMessage(Message message){
-		//logger.lo no logger method for Request messages
+		//Payload consists of 4 byte piece index filed
+		int reqPiece = Integer.parseInt(message.payload);
+		//Check if peer is choked or unchoked
+		
+		//If valid peer send them piece
+		
+		
 	}
 	private void processPieceMessage(Message message){
+		//Retrieve 4 byte piece index value
+		int recvPiece = Integer.parseInt(message.payload);
+		//Update Current peers bitfield to have that piece
+		this.havePieces[recvPiece] = true;
+		//Log download completetion of this piece
 		logger.logDownloadingPiece(message.peerID, -1,-1); // fix to parse message payload into required fields
 	}
     public void run(){ // file retrieval and peer file distribution done here
