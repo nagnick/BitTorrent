@@ -5,16 +5,19 @@ import java.io.ObjectOutputStream;
 import java.net.Socket;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.Comparator;
 import java.util.concurrent.LinkedBlockingQueue;
 
-public class PeerTCPConnection extends Thread{ // spinning thread waiting for peer messages
+public class PeerTCPConnection extends Thread { // spinning thread waiting for peer messages
     LinkedBlockingQueue<Message> inbox;
     Socket connection;
     ObjectInputStream in;
     ObjectOutputStream out;
      int peerID;
      int totalInMessages = 0;
-     int totalTimeUnChoked = 0;
+     int totalOptimisticPeriods = 0;
+     int totalPreferredPeriods = 0;
+     double downloadRate = 0;
     public PeerTCPConnection(LinkedBlockingQueue<Message> inbox, Socket connection){ // pass in peer info to form tcp connection
         this.inbox = inbox;
         this.connection = connection;
@@ -79,16 +82,7 @@ public class PeerTCPConnection extends Thread{ // spinning thread waiting for pe
     public void setPeerId(int ID){
         peerID = ID;
     }
-    public void incrementTotalTimeUnChoked(int value){
-        totalTimeUnChoked += value;
-    }
-    public int getTotalTimeUnChoked(){
-        return totalTimeUnChoked;
-    }
     public void incrementTotalInMessages(){
         totalInMessages++;
-    }
-    public int getTotalInMessages(){
-        return totalInMessages;
     }
 }
