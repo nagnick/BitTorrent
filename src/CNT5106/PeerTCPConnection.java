@@ -18,6 +18,7 @@ public class PeerTCPConnection extends Thread { // spinning thread waiting for p
      int totalOptimisticPeriods = 0;
      int totalPreferredPeriods = 0;
      double downloadRate = 0;
+     boolean interested = false;
     public PeerTCPConnection(LinkedBlockingQueue<Message> inbox, Socket connection){ // pass in peer info to form tcp connection
         this.inbox = inbox;
         this.connection = connection;

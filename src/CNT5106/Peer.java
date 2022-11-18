@@ -310,6 +310,7 @@ public class Peer{
 			newPeerPieceMap[i] = newPeerPieceMap[i] | peerPieces[i];
 		}
 		peerPieceMap.put(message.peerID, newPeerPieceMap); //update the peer's piece mapping
+		peerTCPConnections.get(message.peerID).interested = true;
 	}
 	private void processNotInterestedMessage(Message message){
 		logger.logRecvNotIntMessage(message.peerID);
@@ -320,6 +321,7 @@ public class Peer{
 			newPeerPieceMap[i] = peerPieces[i] | havePieces[i];
 		}
 		peerPieceMap.put(message.peerID, newPeerPieceMap);  //update the peer's piece mapping
+		peerTCPConnections.get(message.peerID).interested = false;
 	}
 	private void processHaveMessage(Message message){
 		logger.logRecvHaveMessage(message.peerID,Integer.parseInt(message.payload)); // probably have to fix payload always int?
