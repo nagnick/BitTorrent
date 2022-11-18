@@ -25,13 +25,23 @@ public class Peer{
 	public static class TCPConnectionDownloadRateComparator implements Comparator<PeerTCPConnection> { // used by MAX priority queue in timerup function
 		@Override
 		public int compare(PeerTCPConnection x, PeerTCPConnection y) {
-			if (x.downloadRate < y.downloadRate) {
-				return 1;
+			//normal set up x < y return -1(move x up) x > y return 1(move y up) this is min heap so swap
+			if(x.interested && y.interested) {
+				if (x.downloadRate < y.downloadRate) {
+					return 1; // move y up better download rate
+				}
+				if (x.downloadRate > y.downloadRate) {
+					return -1; // move x up better download rate
+				}
+				return 0; // equal case
 			}
-			if (x.downloadRate > y.downloadRate) {
+			if(x.interested){ // x should move up
 				return -1;
 			}
-			return 0;
+			if(y.interested) { // y should move up
+				return 1;
+			}
+			return 0; // both not interested
 		}
 	}
     Integer myID; //ID of this peer
