@@ -19,6 +19,8 @@ import java.util.regex.Pattern;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.Timer;
 
+import static CNT5106.Message.MessageTypes;
+
 public class Peer{
 	public static class TCPConnectionDownloadRateComparator implements Comparator<PeerTCPConnection> { // used by MAX priority queue in timerup function
 		@Override
@@ -329,7 +331,7 @@ public class Peer{
 	}
 	private void processBitfieldMessage(Message message){
 		//logger.lo no logger method for bitfield
-		boolean peerBitfield[] = new boolean[message.payload.length()];
+		Boolean peerBitfield[] = new Boolean[message.payload.length()];
 		for(int i =  0; i< message.payload.length();i++)
 		{
 			if(message.payload.charAt(i) =='1')
@@ -358,6 +360,12 @@ public class Peer{
 		this.havePieces[recvPiece] = true;
 		//Log download completetion of this piece
 		logger.logDownloadingPiece(message.peerID, -1,-1); // fix to parse message payload into required fields
+
+		//send out new have messages to all the peers we're connected to
+		Message haveNotification = new Message(4, MessageTypes.have, Integer.toString(recvPiece));
+		peerTCPConnections.forEach((peerID, peerConnection) -> {
+			peerConnection.send(haveNotification);
+		});
 	}
     public void run(){ // file retrieval and peer file distribution done here
         // start main process of asking peers for bytes of file
