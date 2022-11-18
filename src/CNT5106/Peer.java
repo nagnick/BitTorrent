@@ -340,6 +340,24 @@ public class Peer{
 		Boolean[] newPeerPieceMap = Arrays.copyOf(peerPieces, numPieces); //create copy of the peer's piece map so we don't modify existing one
 		newPeerPieceMap[pieceIndex] = true; //set the piece the peer says it has to true
 		peerPieceMap.put(message.peerID, newPeerPieceMap);
+
+		Boolean[] peerAndMissingPieces = new Boolean[numPieces]; //the pieces I'm missing ANDed with the pieces the peer has
+		for(int i=0; i<numPieces; i++)
+		{
+			peerAndMissingPieces[i] = !havePieces[i] & newPeerPieceMap[i]; //invert what I have to mark if missing, AND it with what peer has to check if it has it
+		}
+
+		if(Arrays.stream(peerAndMissingPieces).toList().contains(Boolean.TRUE)) //the peer has a piece that I am missing
+		{
+			Message interestedNotification = new Message(0, MessageTypes.interested, "");
+			peerTCPConnections.get(message.peerID).send(interestedNotification);
+		}
+
+		else //the peer has nothing i need
+		{
+			Message notInterestedNotification = new Message(0, MessageTypes.notInterested, "");
+			peerTCPConnections.get(message.peerID).send(notInterestedNotification);
+		}
 	}
 	private void processBitfieldMessage(Message message){
 		//logger.lo no logger method for bitfield
