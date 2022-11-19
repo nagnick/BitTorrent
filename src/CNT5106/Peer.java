@@ -62,7 +62,7 @@ public class Peer{
 	Timer timer;
 	UnchokeTimer optimisticTimer;
 	UnchokeTimer regularTimer;
-	ArrayList<Integer> preferredPeers; // will hold numPreferredPeers
+	ArrayList<Integer> preferredPeers = new ArrayList<>(); // will hold numPreferredPeers
 	int optimisticPeer = -1; // will hold random peer note this peer may also be a preferred peer after a regular time period
     LinkedBlockingQueue<Message> inbox = new LinkedBlockingQueue<Message>(); // all recev tcp threads write to here
     HashMap<Integer,PeerTCPConnection> peerTCPConnections = new HashMap<Integer, PeerTCPConnection>(); // holds all peer tcp connections
@@ -127,29 +127,34 @@ public class Peer{
 		Message unchoke = new Message(0, Message.MessageTypes.unchoke,"");
 		Message choke = new Message(0, Message.MessageTypes.choke,"");
 		Object[] keys = peerTCPConnections.keySet().toArray(); // get keys in map currently
-		//FIX DON'T CHOKE/UNCHOKE PEERS ALREADY IN THAT STATE maybe don't have to do this
-		if (optimistic){
-			int i = rand.nextInt(keys.length); // random index [0 - keys.length-1]
+		if (optimistic){ // DONE
 			if(optimisticPeer != -1) { // if an optimistic peer has been set do calculations for download rate (Assumes -1 not valid peerID aka not set)
-				PeerTCPConnection opt = peerTCPConnections.get((Integer) keys[i]);
+				PeerTCPConnection opt = peerTCPConnections.get(optimisticPeer);
 				opt.send(choke); // choke peer before setting new one
 				opt.totalOptimisticPeriods += 1;
 				// set new download rate
 				opt.downloadRate = (double) opt.totalInMessages / ((opt.totalPreferredPeriods * unchokingInterval)
 						+ (opt.totalOptimisticPeriods * optimisticUnchokingInterval));
+				peerTCPConnections.get(optimisticPeer).send(choke); // choke old peer
+				peerTCPConnections.get(optimisticPeer).choked = true; // used for tracking
+			}
+			int i = rand.nextInt(keys.length); // random index [0 - keys.length-1]
+			while(!peerTCPConnections.get((Integer)keys[i]).choked) { // keep looking until find a peer that is choked
+				i = rand.nextInt(keys.length); // random index [0 - keys.length-1]
 			}
 			optimisticPeer = (Integer) keys[i]; // set new optimistic peer
 			peerTCPConnections.get(optimisticPeer).send(unchoke); // unchoke new peer
-		}else{
+			peerTCPConnections.get(optimisticPeer).choked = false; // used for tracking
+		}else {
 			// set regular unchoke peers
 			//NOTE: each data message increments that peers # of messages this is done in the PeerTCPConnection thread
-			if(preferredPeers.isEmpty()) { // has not been intialized so do it now
+			if (preferredPeers.isEmpty()) { // has not been intialized so do it now // DONE
 				preferredPeers = new ArrayList<Integer>(); // set up new array list for next set of prefered peers
 				for (int i = 0; i < numPreferredPeers && i < keys.length; i++) {
 					preferredPeers.add(0, (Integer) (keys[i])); // fill with peers
 					peerTCPConnections.get((Integer) keys[i]).send(unchoke); // unchoke since it is a prefered peer now
 				}
-			}else{ // has run before so select preferred peers based on download rate
+			} else if (!haveFile) { // has run before so select preferred peers based on download rate because I don't have file //Done
 				// top numPreferredPeers become new preferred peers
 				for (int i = 0; i < preferredPeers.size(); i++) { // remove current prefered peers
 					PeerTCPConnection current = peerTCPConnections.get(preferredPeers.get(i));
@@ -157,22 +162,39 @@ public class Peer{
 						current.totalPreferredPeriods += 1;
 					}
 					current.send(choke);
+					current.choked = true;
 					// set new download rate
-					current.downloadRate = (double)current.totalInMessages / ((current.totalPreferredPeriods*unchokingInterval)
-							+(current.totalOptimisticPeriods *optimisticUnchokingInterval));
+					current.downloadRate = (double) current.totalInMessages / ((current.totalPreferredPeriods * unchokingInterval)
+							+ (current.totalOptimisticPeriods * optimisticUnchokingInterval));
 				}
 				Comparator<PeerTCPConnection> comp = new TCPConnectionDownloadRateComparator();
-				PriorityQueue<PeerTCPConnection> bestPeers = new PriorityQueue<PeerTCPConnection>(peerTCPConnections.size(),comp);
+				PriorityQueue<PeerTCPConnection> bestPeers = new PriorityQueue<PeerTCPConnection>(peerTCPConnections.size(), comp);
 				// fill max priority queue based on download rate
 				for (int i = 0; i < keys.length; i++) { // add all peers to a max priority queue
-					int current = (int)keys[i];
+					int current = (int) keys[i];
 					bestPeers.add(peerTCPConnections.get(current));
 				}
 				preferredPeers = new ArrayList<Integer>(); // set up new array list for next set of prefered peers
 				for (int i = 0; i < numPreferredPeers && !bestPeers.isEmpty(); i++) {
 					PeerTCPConnection best = bestPeers.peek();
-					preferredPeers.add(0,best.peerID); // fill with peers with best download rate
+					preferredPeers.add(0, best.peerID); // fill with peers with best download rate
 					best.send(unchoke); // unchoke since it is a prefered peer now
+					best.choked = false;
+				}
+			} else { // has run before but I have file so don't use download rates anymore // DONE
+				for (int i = 0; i < preferredPeers.size(); i++) { // choke old preferred
+					int current = preferredPeers.get(i);
+					peerTCPConnections.get(current).send(choke);
+					peerTCPConnections.get(current).choked = true;
+				}
+				preferredPeers = new ArrayList<>();
+				for (int i = 0; i < keys.length && preferredPeers.size() < numPreferredPeers; i++) {
+					PeerTCPConnection current = peerTCPConnections.get((int) keys[i]);
+					if (current.choked && current.interested) {
+						preferredPeers.add(0, (int) keys[i]);
+						current.send(unchoke);
+						current.choked = false;
+					}
 				}
 			}
 		}
@@ -297,15 +319,21 @@ public class Peer{
 			default -> throw new RuntimeException("Unexpected message type in processMessage\n");
 		}
 	}
-	private void processChokeMessage(Message message){ // Work in progress -Nick
+	private void processChokeMessage(Message message){ //Done-Nick
 
 		logger.logChoking(message.peerID);
-
+		// it choked me so do nothing. I will no longer receive file pieces
+		// it may lose perfereed peer status later on if download rate drops but not my problem here
 	}
 	private void processUnchokeMessage(Message message){ // Work in progress -Nick
 
 		logger.logUnchoking(message.peerID);
+		// it unchoked me so send it what I want if download rate is good I may make it a preferred peer
 
+		// FIX THIS should be actual request
+		int length = 0;
+		String payload = "";
+		peerTCPConnections.get(message.peerID).send(new Message(length,MessageTypes.request,payload));
 	}
 	private void processInterestedMessage(Message message){
 		logger.logRecvIntMessage(message.peerID);
