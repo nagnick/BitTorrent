@@ -323,13 +323,13 @@ public class Peer{
 
 		logger.logChoking(message.peerID);
 		// it choked me so do nothing. I will no longer receive file pieces
-		// it may lose perfereed peer status later on if download rate drops but not my problem here
+		// it may lose perfereed peer status later on when download rate drops but not my problem here
 	}
 	private void processUnchokeMessage(Message message){ // Work in progress -Nick
 
 		logger.logUnchoking(message.peerID);
 		// it unchoked me so send it what I want if download rate is good I may make it a preferred peer
-
+		// it unchoked me so i will get pieces send which ones I want....
 		// FIX THIS should be actual request
 		int length = 0;
 		String payload = "";
