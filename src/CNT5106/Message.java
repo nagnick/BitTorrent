@@ -16,7 +16,7 @@ public class Message {
         piece,//7
         handShake //8 special case to denote HandShakeMessage
     }
-    int length; // 4 bytes does not include itself first part in message
+    int length; // 4 bytes does not include itself first part in message payload sie in bytes
     MessageTypes type; // 1 byte second part in message
     String payload; // variable size message payload last in message
     String handShake = "P2PFILESHARINGPROJ";

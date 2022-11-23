@@ -56,7 +56,8 @@ public class Peer{
     int pieceSize; //the size of the pieces of the file we want
     int numPieces; //the total number of pieces of the file, used as part of bitfield logic.
     boolean haveFile; //indicate if I have entire file or not
-    boolean havePieces[]; //track what pieces I have by index value
+    boolean[] havePieces; //track what pieces I have by index value
+	boolean[] requestedPieces; // track pieces I have requested from peers
 	Logger logger;
     Thread serverThread;
 	Timer timer;
@@ -121,7 +122,9 @@ public class Peer{
     	configFile.close(); //we're done with the common config file, close it out.
     	numPieces = (int)(Math.ceil((double)(desiredFileSize)/(double)(pieceSize)));
 		this.havePieces = new boolean[numPieces]; //init the pieces array to track what pieces we have
+		this.requestedPieces = new boolean[numPieces];
 		Arrays.fill(havePieces, haveFile); //set the initial values of the pieces array based on whether we've got the entire file.
+		Arrays.fill(requestedPieces,haveFile); // don't request pieces I have so add to requested list
     }
 	public void timerUp(boolean optimistic){
 		Message unchoke = new Message(0, Message.MessageTypes.unchoke,"");
@@ -323,16 +326,27 @@ public class Peer{
 
 		logger.logChoking(message.peerID);
 		// it choked me so do nothing. I will no longer receive file pieces
-		// it may lose perfereed peer status later on when download rate drops but not my problem here
+		// it may lose preferred peer status later on when download rate drops
+		//track peers view of me to maintain ping pong of pieces because
+		peerTCPConnections.get(message.peerID).iamChoked = true;
 	}
-	private void processUnchokeMessage(Message message){ // Work in progress -Nick
-
+	private void processUnchokeMessage(Message message){ //Done -Nick
+		peerTCPConnections.get(message.peerID).iamChoked = false;
 		logger.logUnchoking(message.peerID);
 		// it unchoked me so send it what I want if download rate is good I may make it a preferred peer
 		// it unchoked me so i will get pieces send which ones I want....
-		// FIX THIS should be actual request
-		int length = 0;
+		int length = 4; // 4 byte piece index
 		String payload = "";
+		// peerPeice map has peices that that peers has
+		//peer id and boolean[] index is for that piece id and true if that peer has that file so if i don't have it so request it...
+		Boolean[] peersPieces = peerPieceMap.get(message.peerID);
+		for (int i = 0; i < peersPieces.length && i < requestedPieces.length; i++){ // add check that it has not been requested??
+			if(peersPieces[i] && !requestedPieces[i]){ // request a piece that I don't have yet and I have not requested already
+				payload = i + "";
+				requestedPieces[i] = true; // just requested it so update
+				break;
+			}
+		}
 		peerTCPConnections.get(message.peerID).send(new Message(length,MessageTypes.request,payload));
 	}
 	private void processInterestedMessage(Message message){
@@ -389,7 +403,7 @@ public class Peer{
 	}
 	private void processBitfieldMessage(Message message){
 		//logger.lo no logger method for bitfield
-		Boolean peerBitfield[] = new Boolean[message.payload.length()];
+		Boolean[] peerBitfield = new Boolean[message.payload.length()];
 		for(int i =  0; i< message.payload.length();i++)
 		{
 			if(message.payload.charAt(i) =='1')
@@ -406,10 +420,13 @@ public class Peer{
 		//Payload consists of 4 byte piece index filed
 		int reqPiece = Integer.parseInt(message.payload);
 		//Check if peer is choked or unchoked
-		
-		//If valid peer send them piece
-		
-		
+		// Chris use bellow for checking if this peer is choked or not I just added this feature-Nic
+		PeerTCPConnection requestee =peerTCPConnections.get(message.peerID);
+		if(!requestee.choked){ //If peer is not choked send them piece
+			int length = -1; // I don't know what this should be, depends on payload
+			String payload = ""; // I don't know what this should be
+			requestee.send(new Message(length, MessageTypes.piece,payload));
+		}
 	}
 	private void processPieceMessage(Message message){
 		//Retrieve 4 byte piece index value
@@ -422,8 +439,23 @@ public class Peer{
 		//send out new have messages to all the peers we're connected to
 		Message haveNotification = new Message(4, MessageTypes.have, Integer.toString(recvPiece));
 		peerTCPConnections.forEach((peerID, peerConnection) -> {
-			peerConnection.send(haveNotification);
+			peerConnection.send(haveNotification); // update peers on what I have
 		});
+		PeerTCPConnection sender = peerTCPConnections.get(message.peerID);
+		if(!sender.iamChoked){ // if sender has not choked me request another piece keep ping pong going
+			// do not send if it has choked me because it won't send and will break the accuracy of the requestedPieces array
+			int length = 4; // 4 byte piece index
+			String payload = "";
+			Boolean[] peersPieces = peerPieceMap.get(message.peerID);
+			for (int i = 0; i < peersPieces.length && i < requestedPieces.length; i++){ // add check that it has not been requested??
+				if(peersPieces[i] && !requestedPieces[i]){ // request a piece that I don't have yet and I have not requested already
+					payload = i + "";
+					requestedPieces[i] = true; // just requested it so update
+					break;
+				}
+			}
+			sender.send(new Message(length,MessageTypes.request,payload));
+		}
 	}
     public void run(){ // file retrieval and peer file distribution done here
         // start main process of asking peers for bytes of file
