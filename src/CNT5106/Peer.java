@@ -421,12 +421,16 @@ public class Peer{
 		int reqPiece = Integer.parseInt(message.payload);
 		//Check if peer is choked or unchoked
 		// Chris use bellow for checking if this peer is choked or not I just added this feature-Nic
+		//Nic, thank you for this feature I will leave it using the feature and we can update if we need to during testing.-Christian
 		PeerTCPConnection requestee =peerTCPConnections.get(message.peerID);
 		if(!requestee.choked){ //If peer is not choked send them piece
-			int length = -1; // I don't know what this should be, depends on payload
-			String payload = ""; // I don't know what this should be
-			requestee.send(new Message(length, MessageTypes.piece,payload));
-		}
+			if(this.havePieces[reqPiece])//Check for if this peer has the piece being requested.
+			{
+				String payload = Integer.toString(reqPiece); // I don't know what this should be
+				int length = payload.length(); // I don't know what this should be, depends on payload
+				requestee.send(new Message(length, MessageTypes.piece,payload));
+			}
+		}//Need an else statement for which message to send?
 	}
 	private void processPieceMessage(Message message){
 		//Retrieve 4 byte piece index value
@@ -435,7 +439,18 @@ public class Peer{
 		this.havePieces[recvPiece] = true;
 		//Log download completetion of this piece
 		logger.logDownloadingPiece(message.peerID, -1,-1); // fix to parse message payload into required fields
-
+		//Check havePieces to see if completed file
+		for(int i = 0; i < this.havePieces.length;i++ )
+		{
+			if(this.havePieces[i])
+			{
+				this.haveFile = true;
+			}else
+			{
+				this.haveFile = false;
+				break;
+			}
+		}
 		//send out new have messages to all the peers we're connected to
 		Message haveNotification = new Message(4, MessageTypes.have, Integer.toString(recvPiece));
 		peerTCPConnections.forEach((peerID, peerConnection) -> {
