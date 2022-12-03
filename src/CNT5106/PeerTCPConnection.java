@@ -13,14 +13,16 @@ public class PeerTCPConnection extends Thread { // spinning thread waiting for p
     Socket connection;
     ObjectInputStream in;
     ObjectOutputStream out;
-     int peerID;
-     int totalInMessages = 0;
-     int totalOptimisticPeriods = 0;
-     int totalPreferredPeriods = 0;
-     double downloadRate = 0;
-     boolean interested = false;
-     boolean choked = true; // my view of this peer whether I have choked it or not
+    int peerID;
+    int totalInMessages = 0;
+    int totalOptimisticPeriods = 0;
+    int totalPreferredPeriods = 0;
+    double downloadRate = 0;
+    boolean interested = false;
+    boolean choked = true; // my view of this peer whether I have choked it or not
     boolean iamChoked = true; // this peers view of me
+    boolean iHaveFile = false; // used to decide when to terminate program
+
     public PeerTCPConnection(LinkedBlockingQueue<Message> inbox, Socket connection){ // pass in peer info to form tcp connection
         this.inbox = inbox;
         this.connection = connection;

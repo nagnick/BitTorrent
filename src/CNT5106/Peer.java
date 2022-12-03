@@ -354,20 +354,19 @@ public class Peer{
 		logger.logUnchoking(message.peerID);
 		// it unchoked me so send it what I want if download rate is good I may make it a preferred peer
 		// it unchoked me so i will get pieces send which ones I want....
-		int length = 4; // 4 byte piece index
-		String payload = "";
+		StringBuilder payload = new StringBuilder();
 		// peerPeice map has peices that that peers has
 		//peer id and boolean[] index is for that piece id and true if that peer has that file so if i don't have it so request it...
 		if(!haveFile) { // if i don't have file make a request else do nothing
 			Boolean[] peersPieces = peerPieceMap.get(message.peerID);
 			for (int i = 0; i < peersPieces.length && i < requestedPieces.length; i++) { // add check that it has not been requested??
 				if (peersPieces[i] && !requestedPieces[i]) { // request a piece that they have and I have not requested already
-					payload = i + "";
+					payload.append((char)i);
 					requestedPieces[i] = true; // just requested it so update
 					break;
 				}
 			}
-			peerTCPConnections.get(message.peerID).send(new Message(length, MessageTypes.request, payload));
+			peerTCPConnections.get(message.peerID).send(new Message(4, MessageTypes.request, payload.toString()));
 		}
 	}
 	private void processInterestedMessage(Message message){
@@ -396,7 +395,7 @@ public class Peer{
 		peerPieceMap.put(message.peerID, newPeerPieceMap);  //update the peer's piece mapping
 		peerTCPConnections.get(message.peerID).interested = false;
 	}
-	private void processHaveMessage(Message message){
+	private void processHaveMessage(Message message){ //add check for peers having file
 		logger.logRecvHaveMessage(message.peerID,Integer.parseInt(message.payload)); // probably have to fix payload always int?
 		int pieceIndex = Integer.parseInt(message.payload);
 		Boolean[] peerPieces = peerPieceMap.get(message.peerID);
@@ -422,7 +421,7 @@ public class Peer{
 			peerTCPConnections.get(message.peerID).send(notInterestedNotification);
 		}
 	}
-	private void processBitfieldMessage(Message message){ // i don't think we ever use this? when should we send one of these out
+	private void processBitfieldMessage(Message message){ // add check for peers having file
 		//logger.lo no logger method for bitfield
 		Boolean[] peerBitfield = new Boolean[message.payload.length()];
 		for(int i =  0; i< message.payload.length();i++)
@@ -543,6 +542,7 @@ public class Peer{
         me.Connect();
         me.run(); //work in progress
     }
-	//TODO add tracking of peers so that we know when they all have the complete file and set allPeersHaveFile to true
+	//TODO add tracking of peers so that we know when they all have the complete file and set allPeersHaveFile to true 2 spots to add check
 	//TODO use BitField message currently unused and above will not work without using bitfield to keep peers file maps up to date
+	// send after a peer handshake
 }
