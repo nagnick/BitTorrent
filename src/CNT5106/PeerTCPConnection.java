@@ -54,7 +54,8 @@ public class PeerTCPConnection extends Thread { // spinning thread waiting for p
                 ByteBuffer message = ByteBuffer.allocate(5+messageLength).order(ByteOrder.BIG_ENDIAN);
                 message.putInt(0,messageLength);
                 message.put(4,in.readNBytes(1));
-                message.put(5,in.readNBytes(messageLength));
+                if(messageLength != 0)
+                    message.put(5,in.readNBytes(messageLength));
                 inbox.put(new Message(message.array(),false,peerID));
                 incrementTotalInMessages(); // used to track download rate for choking/unchoking
             }
@@ -64,7 +65,7 @@ public class PeerTCPConnection extends Thread { // spinning thread waiting for p
         }
     }
     public boolean send(Message message){
-        System.out.println("Sending message: " + String.valueOf(message));
+        System.out.println("Sending message: " + message.toString());
         try {
             out.write(message.toBytes());
             return true;

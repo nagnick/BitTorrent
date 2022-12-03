@@ -18,10 +18,10 @@ public class Message {
     }
     int length; // 4 bytes does not include itself first part in message payload sie in bytes
     MessageTypes type; // 1 byte second part in message
-    String payload; // variable size message payload last in message
+    byte[] payload; // variable size message payload last in message
     String handShake = "P2PFILESHARINGPROJ";
     int peerID; // handshake only field maybe useful in message queue!!!! to know what came from what
-    public Message(int length,MessageTypes type,String payload){ // make any other message
+    public Message(int length,MessageTypes type,byte[] payload){ // make any other message
         this.length = length;
         this.type = type;
         this.payload = payload;
@@ -49,7 +49,7 @@ public class Message {
                 case(7)-> MessageTypes.piece;
                 default -> throw new RuntimeException("Unexpected message type in char[] constructor of Message\n");
             };
-            this.payload = new String(Arrays.copyOfRange(input,5,input.length));
+            this.payload = Arrays.copyOfRange(input,5,input.length);
             this.peerID = peerID;
         }
     }
@@ -68,7 +68,8 @@ public class Message {
             ByteBuffer mybuff = ByteBuffer.allocate(5 + length).order(ByteOrder.BIG_ENDIAN); // is this right little endian
             mybuff.putInt(length);
             mybuff.position(4).put((byte)type.ordinal());
-            mybuff.position(5).put(payload.getBytes());
+            if(payload != null)
+                mybuff.position(5).put(payload);
             return mybuff.array();
             // type.ordinal returns the int representation
         }
@@ -82,7 +83,7 @@ public class Message {
                     " PeerID: " + peerID;
         }
         else{
-           myString = "Length: " +length +" Type: "+ type.toString()+" Payload: " + payload;
+           myString = "Length: " +length +" Type: "+ type.toString()+" Payload: " + Arrays.toString(payload);
         }
         return myString;
     }

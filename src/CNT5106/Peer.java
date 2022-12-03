@@ -146,8 +146,8 @@ public class Peer{
 		}
     }
 	public void timerUp(boolean optimistic){
-		Message unchoke = new Message(0, Message.MessageTypes.unchoke,"");
-		Message choke = new Message(0, Message.MessageTypes.choke,"");
+		Message unchoke = new Message(0, Message.MessageTypes.unchoke,null);
+		Message choke = new Message(0, Message.MessageTypes.choke,null);
 		Object[] keys = peerTCPConnections.keySet().toArray(); // get keys in map currently
 		if (optimistic){ // DONE
 			if(optimisticPeer != -1) { // if an optimistic peer has been set do calculations for download rate (Assumes -1 not valid peerID aka not set)
@@ -231,13 +231,13 @@ public class Peer{
 			timer.schedule(regularTimer,0,(long)(unchokingInterval)*1000); // milli to seconds
 		}
 	}
-	private Message makeMyBitFieldMessage(){
-		StringBuilder payload = new StringBuilder();
+	private Message makeMyBitFieldMessage(){ // done
+		byte[] payload = new byte[numPieces];
 		int toSend = 0;
 		for(int i = 0; i < havePieces.length; i++){
 			if(i != 0 && i%8 == 0){
-				payload.append((char)toSend);
-				toSend = (char)0;
+				payload[i/8] = (byte)toSend;
+				toSend =0;
 			}
 			toSend = toSend << 1;
 			if(havePieces[i]) {
@@ -249,9 +249,9 @@ public class Peer{
 			toSend = toSend << 1;
 		}
 		if(havePieces.length%8 != 0) {
-			payload.append((char) toSend);
+			payload[payload.length-1] = (byte)toSend;
 		}
-		return new Message(payload.length(),MessageTypes.bitfield,payload.toString());
+		return new Message(payload.length,MessageTypes.bitfield,payload);
 	}
     
     public void Connect(){ // parse manifest file and connect to peers
@@ -378,19 +378,19 @@ public class Peer{
 		logger.logUnchoking(message.peerID);
 		// it unchoked me so send it what I want if download rate is good I may make it a preferred peer
 		// it unchoked me so i will get pieces send which ones I want....
-		StringBuilder payload = new StringBuilder();
 		// peerPeice map has peices that that peers has
 		//peer id and boolean[] index is for that piece id and true if that peer has that file so if i don't have it so request it...
 		if(!haveFile) { // if i don't have file make a request else do nothing
 			Boolean[] peersPieces = peerPieceMap.get(message.peerID);
 			for (int i = 0; i < peersPieces.length && i < requestedPieces.length; i++) { // add check that it has not been requested??
 				if (peersPieces[i] && !requestedPieces[i]) { // request a piece that they have and I have not requested already
-					payload.append((char)i);
+					ByteBuffer mybuff = ByteBuffer.allocate(4).order(ByteOrder.BIG_ENDIAN);
+					mybuff.putInt(i);
+					peerTCPConnections.get(message.peerID).send(new Message(4, MessageTypes.request, mybuff.array()));
 					requestedPieces[i] = true; // just requested it so update
 					break;
 				}
 			}
-			peerTCPConnections.get(message.peerID).send(new Message(4, MessageTypes.request, payload.toString()));
 		}
 	}
 	private void processInterestedMessage(Message message){
@@ -420,10 +420,9 @@ public class Peer{
 		peerTCPConnections.get(message.peerID).interested = false;
 	}
 	private void processHaveMessage(Message message){ //done
-		ByteBuffer lengthBuff = ByteBuffer.allocate(4).order(ByteOrder.BIG_ENDIAN);
-		int pieceNumber = lengthBuff.put(message.payload.getBytes()).getInt(0);
-		logger.logRecvHaveMessage(message.peerID,pieceNumber); // treat chars as bytes...
-		int pieceIndex = Integer.parseInt(message.payload);
+		ByteBuffer buff = ByteBuffer.allocate(4).order(ByteOrder.BIG_ENDIAN);
+		int pieceIndex = buff.put(message.payload).getInt(0);
+		logger.logRecvHaveMessage(message.peerID,pieceIndex); // treat chars as bytes...
 		Boolean[] peerPieces = peerPieceMap.get(message.peerID);
 		Boolean[] newPeerPieceMap = Arrays.copyOf(peerPieces, numPieces); //create copy of the peer's piece map so we don't modify existing one
 		newPeerPieceMap[pieceIndex] = true; //set the piece the peer says it has to true
@@ -447,13 +446,13 @@ public class Peer{
 
 		if(Arrays.stream(peerAndMissingPieces).toList().contains(Boolean.TRUE)) //the peer has a piece that I am missing
 		{
-			Message interestedNotification = new Message(0, MessageTypes.interested, "");
+			Message interestedNotification = new Message(0, MessageTypes.interested, null);
 			peerTCPConnections.get(message.peerID).send(interestedNotification);
 		}
 
 		else //the peer has nothing i need
 		{
-			Message notInterestedNotification = new Message(0, MessageTypes.notInterested, "");
+			Message notInterestedNotification = new Message(0, MessageTypes.notInterested, null);
 			peerTCPConnections.get(message.peerID).send(notInterestedNotification);
 		}
 		allPeersHaveFile = true;
@@ -466,6 +465,8 @@ public class Peer{
 	private void processBitfieldMessage(Message message){ // bitfeild is not processed right-Nick
 		//logger.lo no logger method for bitfield
 		Boolean[] currentPeerPieceMapping = new Boolean[numPieces];
+		// byte buffer you can use ben. call buff.put(mybyte); to add bytes to it or buff.putChar(myChar); for chars
+		ByteBuffer buff = ByteBuffer.allocate(numPieces).order(ByteOrder.BIG_ENDIAN);
 		int segmentIndex = 0; //segment index value used to map the bits in each char to their piece index val
 		for(char charVal : message.payload.toCharArray()) //convert the payload into a char array and iterate through it to build peerPieceMap
 		{
@@ -513,43 +514,36 @@ public class Peer{
 	}
 	private void processRequestMessage(Message message){ // done
 		//Payload consists of 4 byte piece index filed and
-		ByteBuffer lengthBuff = ByteBuffer.allocate(4).order(ByteOrder.BIG_ENDIAN);
-		byte[] received = message.payload.getBytes();
+		ByteBuffer buff =  ByteBuffer.allocate(4).order(ByteOrder.BIG_ENDIAN);
+		byte[] received = message.payload;
 		//Retrieve 4 byte piece index value
-		int reqPiece = lengthBuff.put(received).get(0); // the piece requested
+		int reqPiece = buff.put(received).getInt(0); // the piece requested
 		//Update Current peers bitfield to have that piece
 		//Check if peer is choked or unchoked
-		// Chris use bellow for checking if this peer is choked or not I just added this feature-Nic
-		//Nic, thank you for this feature I will leave it using the feature and we can update if we need to during testing.-Christian
 		PeerTCPConnection requestee = peerTCPConnections.get(message.peerID);
 		if(!requestee.choked){ //If peer is not choked send them piece
 			int startingIndex = reqPiece*pieceSize;
-			StringBuilder payload = new StringBuilder();
 			//Include piece index in beignning of message payload
-			payload.append((char)reqPiece);
+			ByteBuffer mybuff = ByteBuffer.allocate(pieceSize).order(ByteOrder.BIG_ENDIAN);
+			mybuff.putInt(reqPiece);
 			//piece of file is from reqpiece*pieceSize to (reqpiece * pieceSize) + pieceSize. not inclusive
 			for(int i = startingIndex; i < startingIndex + pieceSize && i < desiredFileSize; i++ ){ // add bytes received to my file
-				payload.append((char) file[i]);
+				mybuff.put(file[i]);
 			}
-				requestee.send(new Message(payload.length(), MessageTypes.piece, payload.toString()));
+				requestee.send(new Message(pieceSize, MessageTypes.piece, mybuff.array()));
 		}
 	}
 	private void processPieceMessage(Message message){ // done
-		ByteBuffer lengthBuff = ByteBuffer.allocate(4).order(ByteOrder.BIG_ENDIAN);
-		byte[] PiecesReceived = message.payload.getBytes();
-		byte[] indexOf = new byte[4];
-		for(int i = 0; i < 4; i++){
-			indexOf[i] = PiecesReceived[i];
-		}
+		ByteBuffer buff = ByteBuffer.allocate(message.length).order(ByteOrder.BIG_ENDIAN);
 		//Retrieve 4 byte piece index value
-		int recvPiece = lengthBuff.put(indexOf).get(0); // the piece i get is the piece i requested
+		int recvPiece = buff.put(message.payload).getInt(0); // the piece i get is the piece i requested
 		//Update Current peers bitfield to have that piece
 		this.havePieces[recvPiece] = true;
 		//Log download completetion of this piece
 		logger.logDownloadingPiece(message.peerID, recvPiece,message.length);
 		int startingIndex = recvPiece*pieceSize;
-		for(int i = startingIndex + 4; i < message.length + startingIndex && i < desiredFileSize; i++ ){ // add bytes received to my file
-			file[i] = PiecesReceived[i-startingIndex];
+		for(int i = startingIndex; i < message.length + startingIndex && i < desiredFileSize; i++ ){ // add bytes received to my file
+			file[i] = buff.get();
 		}
 		//Check havePieces to see if completed file
 		for(int i = 0; i < this.havePieces.length;i++ )
@@ -565,7 +559,7 @@ public class Peer{
 			}
 		}
 		//send out new have messages to all the peers we're connected to
-		Message haveNotification = new Message(4, MessageTypes.have, Integer.toString(recvPiece));
+		Message haveNotification = new Message(4, MessageTypes.have, Arrays.copyOfRange(message.payload,0,4));
 		peerTCPConnections.forEach((peerID, peerConnection) -> {
 			peerConnection.send(haveNotification); // update peers on what I have
 		});
@@ -573,16 +567,16 @@ public class Peer{
 		if(!sender.iamChoked){ // if sender has not choked me request another piece keep ping pong going
 			// do not send if it has choked me because it won't send and will break the accuracy of the requestedPieces array
 			int length = 4; // 4 byte piece index
-			StringBuilder payload = new StringBuilder();
+			ByteBuffer mybuff = ByteBuffer.allocate(4).order(ByteOrder.BIG_ENDIAN);
 			Boolean[] peersPieces = peerPieceMap.get(message.peerID);
 			for (int i = 0; i < peersPieces.length && i < requestedPieces.length; i++){ // add check that it has not been requested??
 				if(peersPieces[i] && !requestedPieces[i]){ // request a piece that I don't have yet and I have not requested already
-					payload.append((char)i);
+					mybuff.putInt(i);
 					requestedPieces[i] = true; // just requested it so update
 					break;
 				}
 			}
-			sender.send(new Message(length,MessageTypes.request,payload.toString()));
+			sender.send(new Message(length,MessageTypes.request,mybuff.array()));
 		}
 	}
     public void run(){ // file retrieval and peer file distribution done here
@@ -619,6 +613,4 @@ public class Peer{
     }
 	//TODO fix processBitField message to actually read a bitfield
     //I think the processing of bits instead of bytes has been fixed "Not right" - Nick
-	//TODO fix any spots that treat the payload field of message as a string and not a byte array. I know it's a string but really its the
-	// individual bytes not chars that matter so parsetoint is wrong because int is stored completely in 1 char(1 byte)
 }
