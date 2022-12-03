@@ -50,7 +50,7 @@ public class PeerTCPConnection extends Thread { // spinning thread waiting for p
             while(!connection.isClosed()) { // testing required
                 // read bytes and create message to put in message queue inbox
                 ByteBuffer lengthBuff = ByteBuffer.allocate(4).order(ByteOrder.BIG_ENDIAN);
-                int messageLength = lengthBuff.put(in.readNBytes(4)).get(0);
+                int messageLength = lengthBuff.put(in.readNBytes(4)).getInt(0);
                 ByteBuffer message = ByteBuffer.allocate(5+messageLength).order(ByteOrder.BIG_ENDIAN);
                 message.putInt(0,messageLength);
                 message.put(4,in.readNBytes(1));
