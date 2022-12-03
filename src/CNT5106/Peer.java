@@ -231,6 +231,28 @@ public class Peer{
 			timer.schedule(regularTimer,0,(long)(unchokingInterval)*1000); // milli to seconds
 		}
 	}
+	private Message makeMyBitFieldMessage(){
+		StringBuilder payload = new StringBuilder();
+		int toSend = 0;
+		for(int i = 0; i < havePieces.length; i++){
+			if(i != 0 && i%8 == 0){
+				payload.append((char)toSend);
+				toSend = (char)0;
+			}
+			toSend = toSend << 1;
+			if(havePieces[i]) {
+				toSend = toSend | 1;
+			}
+		}
+		// add final zeros is numofPieces is not perfectly divisible by byte
+		for(int i = 0; i < havePieces.length%8; i++){
+			toSend = toSend << 1;
+		}
+		if(havePieces.length%8 != 0) {
+			payload.append((char) toSend);
+		}
+		return new Message(payload.length(),MessageTypes.bitfield,payload.toString());
+	}
     
     public void Connect(){ // parse manifest file and connect to peers
     	Scanner peerInfoFile = new Scanner(peerInfoFileName);
@@ -273,8 +295,9 @@ public class Peer{
 			
 			                peerConnection.setPeerId(peerHandshake.peerID); // set peerID for tracking of message origin in message queue
 			                 // important later when messages are mixed in queue to track their origin
-			
+
 			                peerConnection.start(); // start that peers reading thread
+							peerConnection.send(makeMyBitFieldMessage()); // sends out bit field of pieces I have upon connection
 			                peerTCPConnections.put(peerHandshake.peerID,peerConnection);
 		            	}
 		            	peerFileMap.put(currentPeerID, peerHasFile); //still build the map of which peers have what files.
@@ -310,6 +333,7 @@ public class Peer{
 					peerTCPConnections.put(peerHandshake.peerID,peerConnection);
 					//THIS LOGIC MUST BE TESTED HOW DOES OTHER PEER KNOW IT IS DUPLICATE CONNECTION????
 					if(peerTCPConnections.get(peerHandshake.peerID) == null) { // if not in map put in
+						peerConnection.send(makeMyBitFieldMessage()); // sends out bit field of pieces I have upon connection
 						peerTCPConnections.put(peerHandshake.peerID, peerConnection);
 						logger.logTCPConnection(peerHandshake.peerID); // new connection log it
 					}
