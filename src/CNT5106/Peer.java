@@ -425,6 +425,17 @@ public class Peer{
 		Boolean[] peerPieces = peerPieceMap.get(message.peerID);
 		Boolean[] newPeerPieceMap = Arrays.copyOf(peerPieces, numPieces); //create copy of the peer's piece map so we don't modify existing one
 		newPeerPieceMap[pieceIndex] = true; //set the piece the peer says it has to true
+		Boolean peerHaveFile = true;
+		for(int k = 0;k < newPeerPieceMap.length;k++)//Check to see if peer has complete file
+		{
+			if(!newPeerPieceMap[k])
+			{
+				peerHaveFile = false; //variable to check if peer has whole file
+			}
+		}
+		
+		//TODO update peerTCPConnections haveFile attribute with peerHaveFile.	
+		
 		peerPieceMap.put(message.peerID, newPeerPieceMap);
 
 		Boolean[] peerAndMissingPieces = new Boolean[numPieces]; //the pieces I'm missing ANDed with the pieces the peer has
@@ -455,18 +466,30 @@ public class Peer{
 	private void processBitfieldMessage(Message message){ // add check for peers having file
 		//logger.lo no logger method for bitfield
 		Boolean[] peerBitfield = new Boolean[message.payload.length()];
-		for(int i =  0; i< message.payload.length();i++) // FIX THEY ARE BITS NOT CHARS
+		char bits;
+		int bit = 0;
+		Boolean peerHaveFile = true;
+		for(int i =  0; i< message.payload.length();i++) // Fixed to analyze bits in the order specifed in the doc
 		{
-			if(message.payload.charAt(i) =='1')
+			bits =message.payload.charAt(i);
+			for(int j = 7;j >= 0;j++)//Starts with high bit
 			{
-				peerBitfield[i]= true;
-			}else
-			{
-				peerBitfield[i] = false;
+				bit = (bits&1<<j);
+				if(bit != 0)
+				{
+					peerBitfield[i]= true;
+				}else
+				{
+					peerBitfield[i] = false;
+					peerHaveFile = false;
+				}
 			}
+			
 		}
+		//TODO update peerTCPConnections haveFile attribute with peerHaveFile.
 		peerPieceMap.put(message.peerID, peerBitfield);
-		// FIX SET peerConnection.haveFile to true if true somewhere above...
+		// FIX SET peerConnection.haveFile to true if true. I have the variable peerHaveFile to indicate if the peer has the whole file.
+		//I am just unsure how to set that particular variable of the peerTCPConnection.
 		allPeersHaveFile = true;
 		peerTCPConnections.forEach((peerID, peerConnection) -> {
 			if(!peerConnection.haveFile){
@@ -581,7 +604,8 @@ public class Peer{
         me.run(); //work in progress
     }
 	//TODO finish setting of allPeersHaveFile. Must set each peer's haveFile status in the 2 spots noted above
-	//TODO fix processBitField message to actually read a bitfield.
+	//fix processBitField message to actually read a bitfield
+    //I think the processing of bits instead of bytes has been fixed
 	//TODO fix any spots that treat the payload field of message as a string and not a byte array. I know it's a string but really its the
 	// individual bytes not chars that matter so parsetoint is wrong because int is stored completely in 1 char(1 byte)
 }
