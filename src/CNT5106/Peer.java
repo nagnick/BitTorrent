@@ -444,7 +444,7 @@ public class Peer{
 			Message notInterestedNotification = new Message(0, MessageTypes.notInterested, "");
 			peerTCPConnections.get(message.peerID).send(notInterestedNotification);
 		}
-		// FIX SET peerConnection.iHaveFile to true if true somewhere above...
+		// FIX SET peerConnection.haveFile to true if true somewhere above...
 		allPeersHaveFile = true;
 		peerTCPConnections.forEach((peerID, peerConnection) -> {
 			if(!peerConnection.haveFile){
@@ -466,7 +466,7 @@ public class Peer{
 			}
 		}
 		peerPieceMap.put(message.peerID, peerBitfield);
-		// FIX SET peerConnection.iHaveFile to true if true somewhere above...
+		// FIX SET peerConnection.haveFile to true if true somewhere above...
 		allPeersHaveFile = true;
 		peerTCPConnections.forEach((peerID, peerConnection) -> {
 			if(!peerConnection.haveFile){
@@ -580,7 +580,8 @@ public class Peer{
         me.Connect();
         me.run(); //work in progress
     }
-	//TODO add tracking of peers so that we know when they all have the complete file and set allPeersHaveFile to true 2 spots to add check
-	//TODO use BitField message currently unused and above will not work without using bitfield to keep peers file maps up to date
-	// send after a peer handshake
+	//TODO finish setting of allPeersHaveFile. Must set each peer's haveFile status in the 2 spots noted above
+	//TODO fix processBitField message to actually read a bitfield.
+	//TODO fix any spots that treat the payload field of message as a string and not a byte array. I know it's a string but really its the
+	// individual bytes not chars that matter so parsetoint is wrong because int is stored completely in 1 char(1 byte)
 }
