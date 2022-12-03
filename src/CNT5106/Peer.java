@@ -447,7 +447,7 @@ public class Peer{
 			int startingIndex = reqPiece*pieceSize;
 			StringBuilder payload = new StringBuilder();
 			//Include piece index in beignning of message payload
-			payload.append(Integer.toString(reqPiece));
+			//payload.append(Integer.toString(reqPiece));
 			//piece of file is from reqpiece*pieceSize to (reqpiece * pieceSize) + pieceSize. not inclusive
 			for(int i = startingIndex; i < startingIndex + pieceSize && i < desiredFileSize; i++ ){ // add bytes received to my file
 				payload.append((char) file[i]);
@@ -465,7 +465,7 @@ public class Peer{
 		int startingIndex = recvPiece*pieceSize;
 		byte[] PiecesReceived = message.payload.getBytes();//The fi
 		for(int i = startingIndex; i < message.length + startingIndex && i < desiredFileSize; i++ ){ // add bytes received to my file
-			file[i] = PiecesReceived[i-startingIndex+4];//Added the +4 to account for the 4 bytes of piece index that are apart of the payload
+			file[i] = PiecesReceived[i-startingIndex];//Added the +4 
 		}
 		//Check havePieces to see if completed file
 		for(int i = 0; i < this.havePieces.length;i++ )
