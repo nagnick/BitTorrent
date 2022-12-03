@@ -437,8 +437,8 @@ public class Peer{
 		peerPieceMap.put(message.peerID, peerBitfield);
 	}
 	private void processRequestMessage(Message message){ //fixed?
-		//Payload consists of 4 byte piece index filed
-		int reqPiece = Integer.parseInt(message.payload); // index of piece requested
+		//Payload consists of 4 byte piece index filed and
+		int reqPiece = Integer.parseInt(message.payload); // index of piece requested need to taake the 
 		//Check if peer is choked or unchoked
 		// Chris use bellow for checking if this peer is choked or not I just added this feature-Nic
 		//Nic, thank you for this feature I will leave it using the feature and we can update if we need to during testing.-Christian
@@ -446,6 +446,8 @@ public class Peer{
 		if(!requestee.choked){ //If peer is not choked send them piece
 			int startingIndex = reqPiece*pieceSize;
 			StringBuilder payload = new StringBuilder();
+			//Include piece index in beignning of message payload
+			payload.append(Integer.toString(reqPiece));
 			//piece of file is from reqpiece*pieceSize to (reqpiece * pieceSize) + pieceSize. not inclusive
 			for(int i = startingIndex; i < startingIndex + pieceSize && i < desiredFileSize; i++ ){ // add bytes received to my file
 				payload.append((char) file[i]);
@@ -461,9 +463,9 @@ public class Peer{
 		//Log download completetion of this piece
 		logger.logDownloadingPiece(message.peerID, recvPiece,message.length);
 		int startingIndex = recvPiece*pieceSize;
-		byte[] PiecesReceived = message.payload.getBytes();
+		byte[] PiecesReceived = message.payload.getBytes();//The fi
 		for(int i = startingIndex; i < message.length + startingIndex && i < desiredFileSize; i++ ){ // add bytes received to my file
-			file[i] = PiecesReceived[i-startingIndex];
+			file[i] = PiecesReceived[i-startingIndex+4];//Added the +4 to account for the 4 bytes of piece index that are apart of the payload
 		}
 		//Check havePieces to see if completed file
 		for(int i = 0; i < this.havePieces.length;i++ )
@@ -471,6 +473,7 @@ public class Peer{
 			if(this.havePieces[i])
 			{
 				this.haveFile = true;
+				logger.logDownloadCompletion(); //Log completion of download
 			}else
 			{
 				this.haveFile = false;
