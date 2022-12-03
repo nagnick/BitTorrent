@@ -434,7 +434,7 @@ public class Peer{
 		}
 		peerPieceMap.put(message.peerID, peerBitfield);
 	}
-	private void processRequestMessage(Message message){ // broken sends index not actual piece. piece of file is from reqpiece to (reqpiece * pieceSize)
+	private void processRequestMessage(Message message){ //fixed?
 		//Payload consists of 4 byte piece index filed
 		int reqPiece = Integer.parseInt(message.payload); // index of piece requested
 		//Check if peer is choked or unchoked
@@ -442,13 +442,14 @@ public class Peer{
 		//Nic, thank you for this feature I will leave it using the feature and we can update if we need to during testing.-Christian
 		PeerTCPConnection requestee =peerTCPConnections.get(message.peerID);
 		if(!requestee.choked){ //If peer is not choked send them piece
-			if(this.havePieces[reqPiece])//Check for if this peer has the piece being requested.
-			{ // fix this should be the actual piece requested not the index of piece requested
-				String payload = Integer.toString(reqPiece); // I don't know what this should be
-				int length = payload.length(); // I don't know what this should be, depends on payload
-				requestee.send(new Message(length, MessageTypes.piece,payload));
+			int startingIndex = reqPiece*pieceSize;
+			StringBuilder payload = new StringBuilder();
+			//piece of file is from reqpiece*pieceSize to (reqpiece * pieceSize) + pieceSize. not inclusive
+			for(int i = startingIndex; i < startingIndex + pieceSize && i < desiredFileSize; i++ ){ // add bytes received to my file
+				payload.append((char) file[i]);
 			}
-		}//Need an else statement for which message to send?
+				requestee.send(new Message(payload.length(), MessageTypes.piece, payload.toString()));
+		}
 	}
 	private void processPieceMessage(Message message){ // done fixed
 		//Retrieve 4 byte piece index value
@@ -459,7 +460,7 @@ public class Peer{
 		logger.logDownloadingPiece(message.peerID, recvPiece,message.length);
 		int startingIndex = recvPiece*pieceSize;
 		byte[] PiecesReceived = message.payload.getBytes();
-		for(int i = startingIndex; i < message.length + startingIndex; i++ ){ // add bytes received to my file
+		for(int i = startingIndex; i < message.length + startingIndex && i < desiredFileSize; i++ ){ // add bytes received to my file
 			file[i] = PiecesReceived[i-startingIndex];
 		}
 		//Check havePieces to see if completed file
@@ -505,7 +506,7 @@ public class Peer{
 				System.out.println(inbox.peek().type.toString());
 				inbox.remove();
 			}
-			if(haveFile && allPeersHaveFile){
+			if(haveFile && allPeersHaveFile){ // fix allPeersHaveFile is never changed to true when all peers have the file.
 				logger.logDownloadCompletion();
 				try {
 					FileOutputStream fos = new FileOutputStream(desiredFileName);
