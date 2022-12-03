@@ -356,16 +356,18 @@ public class Peer{
 		String payload = "";
 		// peerPeice map has peices that that peers has
 		//peer id and boolean[] index is for that piece id and true if that peer has that file so if i don't have it so request it...
-		Boolean[] peersPieces = peerPieceMap.get(message.peerID);
-		for (int i = 0; i < peersPieces.length && i < requestedPieces.length; i++){ // add check that it has not been requested??
-			if(peersPieces[i] && !requestedPieces[i]){ // request a piece that I don't have yet and I have not requested already
-				payload = i + "";
-				requestedPieces[i] = true; // just requested it so update
-				peerTCPConnections.get(message.peerID).requestedPiece = i;
-				break;
+		if(!haveFile) { // if i don't have file make a request else do nothing
+			Boolean[] peersPieces = peerPieceMap.get(message.peerID);
+			for (int i = 0; i < peersPieces.length && i < requestedPieces.length; i++) { // add check that it has not been requested??
+				if (peersPieces[i] && !requestedPieces[i]) { // request a piece that they have and I have not requested already
+					payload = i + "";
+					requestedPieces[i] = true; // just requested it so update
+					peerTCPConnections.get(message.peerID).requestedPiece = i;
+					break;
+				}
 			}
+			peerTCPConnections.get(message.peerID).send(new Message(length, MessageTypes.request, payload));
 		}
-		peerTCPConnections.get(message.peerID).send(new Message(length,MessageTypes.request,payload));
 	}
 	private void processInterestedMessage(Message message){
 		logger.logRecvIntMessage(message.peerID);
@@ -419,7 +421,7 @@ public class Peer{
 			peerTCPConnections.get(message.peerID).send(notInterestedNotification);
 		}
 	}
-	private void processBitfieldMessage(Message message){
+	private void processBitfieldMessage(Message message){ // i don't think we ever use this? when should we send one of these out
 		//logger.lo no logger method for bitfield
 		Boolean[] peerBitfield = new Boolean[message.payload.length()];
 		for(int i =  0; i< message.payload.length();i++)
@@ -440,7 +442,7 @@ public class Peer{
 		//Check if peer is choked or unchoked
 		// Chris use bellow for checking if this peer is choked or not I just added this feature-Nic
 		//Nic, thank you for this feature I will leave it using the feature and we can update if we need to during testing.-Christian
-		PeerTCPConnection requestee =peerTCPConnections.get(message.peerID);
+		PeerTCPConnection requestee = peerTCPConnections.get(message.peerID);
 		if(!requestee.choked){ //If peer is not choked send them piece
 			int startingIndex = reqPiece*pieceSize;
 			StringBuilder payload = new StringBuilder();
@@ -529,4 +531,6 @@ public class Peer{
         me.Connect();
         me.run(); //work in progress
     }
+	//TODO add tracking of peers so that we know when they all have the complete file and set allPeersHaveFile to true
+	//TODO use BitField message currently unused and above will not work without using bitfield to keep peers file maps up to date
 }
