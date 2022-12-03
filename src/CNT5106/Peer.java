@@ -419,23 +419,24 @@ public class Peer{
 		peerPieceMap.put(message.peerID, newPeerPieceMap);  //update the peer's piece mapping
 		peerTCPConnections.get(message.peerID).interested = false;
 	}
-	private void processHaveMessage(Message message){ //add check for peers having file
-		logger.logRecvHaveMessage(message.peerID,Integer.parseInt(message.payload)); // probably have to fix payload always int?
+	private void processHaveMessage(Message message){ //done
+		ByteBuffer lengthBuff = ByteBuffer.allocate(4).order(ByteOrder.BIG_ENDIAN);
+		int pieceNumber = lengthBuff.put(message.payload.getBytes()).getInt(0);
+		logger.logRecvHaveMessage(message.peerID,pieceNumber); // treat chars as bytes...
 		int pieceIndex = Integer.parseInt(message.payload);
 		Boolean[] peerPieces = peerPieceMap.get(message.peerID);
 		Boolean[] newPeerPieceMap = Arrays.copyOf(peerPieces, numPieces); //create copy of the peer's piece map so we don't modify existing one
 		newPeerPieceMap[pieceIndex] = true; //set the piece the peer says it has to true
-		Boolean peerHaveFile = true;
+		boolean peerHaveFile = true;
 		for(int k = 0;k < newPeerPieceMap.length;k++)//Check to see if peer has complete file
 		{
 			if(!newPeerPieceMap[k])
 			{
 				peerHaveFile = false; //variable to check if peer has whole file
+				break; // save some time
 			}
 		}
-		
-		//TODO update peerTCPConnections haveFile attribute with peerHaveFile.	
-		
+		peerTCPConnections.get(message.peerID).haveFile = peerHaveFile;
 		peerPieceMap.put(message.peerID, newPeerPieceMap);
 
 		Boolean[] peerAndMissingPieces = new Boolean[numPieces]; //the pieces I'm missing ANDed with the pieces the peer has
@@ -455,7 +456,6 @@ public class Peer{
 			Message notInterestedNotification = new Message(0, MessageTypes.notInterested, "");
 			peerTCPConnections.get(message.peerID).send(notInterestedNotification);
 		}
-		// FIX SET peerConnection.haveFile to true if true somewhere above...
 		allPeersHaveFile = true;
 		peerTCPConnections.forEach((peerID, peerConnection) -> {
 			if(!peerConnection.haveFile){
@@ -463,13 +463,13 @@ public class Peer{
 			}
 		});
 	}
-	private void processBitfieldMessage(Message message){ // add check for peers having file
+	private void processBitfieldMessage(Message message){ // bitfeild is not processed right-Nick
 		//logger.lo no logger method for bitfield
 		Boolean[] peerBitfield = new Boolean[message.payload.length()];
 		char bits;
 		int bit = 0;
 		Boolean peerHaveFile = true;
-		for(int i =  0; i< message.payload.length();i++) // Fixed to analyze bits in the order specifed in the doc
+		for(int i =  0; i< message.payload.length();i++) // Fix
 		{
 			bits =message.payload.charAt(i);
 			for(int j = 7;j >= 0;j++)//Starts with high bit
@@ -486,10 +486,8 @@ public class Peer{
 			}
 			
 		}
-		//TODO update peerTCPConnections haveFile attribute with peerHaveFile.
+		peerTCPConnections.get(message.peerID).haveFile = peerHaveFile;
 		peerPieceMap.put(message.peerID, peerBitfield);
-		// FIX SET peerConnection.haveFile to true if true. I have the variable peerHaveFile to indicate if the peer has the whole file.
-		//I am just unsure how to set that particular variable of the peerTCPConnection.
 		allPeersHaveFile = true;
 		peerTCPConnections.forEach((peerID, peerConnection) -> {
 			if(!peerConnection.haveFile){
@@ -603,9 +601,8 @@ public class Peer{
         me.Connect();
         me.run(); //work in progress
     }
-	//TODO finish setting of allPeersHaveFile. Must set each peer's haveFile status in the 2 spots noted above
-	//fix processBitField message to actually read a bitfield
-    //I think the processing of bits instead of bytes has been fixed
+	//TODO fix processBitField message to actually read a bitfield
+    //I think the processing of bits instead of bytes has been fixed "Not right" - Nick
 	//TODO fix any spots that treat the payload field of message as a string and not a byte array. I know it's a string but really its the
 	// individual bytes not chars that matter so parsetoint is wrong because int is stored completely in 1 char(1 byte)
 }
