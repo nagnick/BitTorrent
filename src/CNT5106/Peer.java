@@ -466,15 +466,15 @@ public class Peer{
 		//logger.lo no logger method for bitfield
 		Boolean[] currentPeerPieceMapping = new Boolean[numPieces];
 		// byte buffer you can use ben. call buff.put(mybyte); to add bytes to it or buff.putChar(myChar); for chars
-		ByteBuffer buff = ByteBuffer.allocate(numPieces).order(ByteOrder.BIG_ENDIAN);
+		//ByteBuffer buff = ByteBuffer.allocate(numPieces).order(ByteOrder.BIG_ENDIAN);
+		//buff.put(message.payload);
 		int segmentIndex = 0; //segment index value used to map the bits in each char to their piece index val
-		for(char charVal : message.payload.toCharArray()) //convert the payload into a char array and iterate through it to build peerPieceMap
+		for(byte msgByte : message.payload) //iterate over each byte of the payload
 		{
-			String bitString = Integer.toBinaryString(charVal); //get raw binary value of the current char in bits
+			String bitString = String.format("%8s", Integer.toBinaryString(msgByte & 0xFF)).replace(' ', '0');
 			for(int i=0; i< bitString.length(); i++) //iterate over the entire char's binary string value
 			{
-				int pieceIndex = i + 16*segmentIndex; //calculate current piece index based on what what bit we are on and what char we are looking at/
-														//chars in java are 16 bits in length, and the only unsigned type that works for what we need here
+				int pieceIndex = i + 8*segmentIndex; //calculate current piece index based on what what bit we are on and what byte we're looking at
 				if(pieceIndex > numPieces) //if we overshoot how many pieces we have, end the loop
 				{
 					break;
