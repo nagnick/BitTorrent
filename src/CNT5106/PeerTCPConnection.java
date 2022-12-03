@@ -19,6 +19,7 @@ public class PeerTCPConnection extends Thread { // spinning thread waiting for p
      int totalPreferredPeriods = 0;
      double downloadRate = 0;
      boolean interested = false;
+     int requestedPiece = -1; // starting index of piece requested
      boolean choked = true; // my view of this peer whether I have choked it or not
     boolean iamChoked = true; // this peers view of me
     public PeerTCPConnection(LinkedBlockingQueue<Message> inbox, Socket connection){ // pass in peer info to form tcp connection
@@ -65,6 +66,7 @@ public class PeerTCPConnection extends Thread { // spinning thread waiting for p
         System.out.println("Sending message: " + String.valueOf(message));
         try {
             out.write(message.toBytes());
+            return true;
         }
         catch (Exception e){
             System.out.println("Error writing bytes in send method");

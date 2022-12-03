@@ -5,6 +5,9 @@ import java.net.ConnectException;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.UnknownHostException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -56,8 +59,10 @@ public class Peer{
     int pieceSize; //the size of the pieces of the file we want
     int numPieces; //the total number of pieces of the file, used as part of bitfield logic.
     boolean haveFile; //indicate if I have entire file or not
+	boolean allPeersHaveFile = false; // used to decide when to exit. if all peers have it and so do I then exit.
     boolean[] havePieces; //track what pieces I have by index value
 	boolean[] requestedPieces; // track pieces I have requested from peers
+	byte [] file; // actual file loaded in on init if peer has the file.
 	Logger logger;
     Thread serverThread;
 	Timer timer;
@@ -125,6 +130,18 @@ public class Peer{
 		this.requestedPieces = new boolean[numPieces];
 		Arrays.fill(havePieces, haveFile); //set the initial values of the pieces array based on whether we've got the entire file.
 		Arrays.fill(requestedPieces,haveFile); // don't request pieces I have so add to requested list
+		if(haveFile){ // if I have the file read it into memory
+			try {
+				Path path = Paths.get(desiredFileName);
+				file =  Files.readAllBytes(path); // bring file into memory
+			}
+			catch (Exception e){
+				System.err.println("Error reading file to distribute");
+			}
+		}
+		else{
+			file = new byte[desiredFileSize]; // init space to save the file.
+		}
     }
 	public void timerUp(boolean optimistic){
 		Message unchoke = new Message(0, Message.MessageTypes.unchoke,"");
@@ -267,7 +284,7 @@ public class Peer{
 		                System.err.println("You are trying to connect to an unknown host!");
 		            }
 		            catch(IOException ioException){
-		                ioException.printStackTrace();
+						System.err.println("iOException in server connection loop");
 		            }
         		}
         	}
@@ -308,7 +325,7 @@ public class Peer{
 		setAndRunTimer(true); // start timers will set up preferred peer array and optimistic peer once they run
 		setAndRunTimer(false); // this gives time for peers to connect before initializing unchoked peers
     }
-	private void processMessage(Message message){
+	private void processMessage(Message message){ // done
 		// process each message depending on their type
 		switch (message.type.ordinal()){
 			case(0)-> processChokeMessage(message);
@@ -344,6 +361,7 @@ public class Peer{
 			if(peersPieces[i] && !requestedPieces[i]){ // request a piece that I don't have yet and I have not requested already
 				payload = i + "";
 				requestedPieces[i] = true; // just requested it so update
+				peerTCPConnections.get(message.peerID).requestedPiece = i;
 				break;
 			}
 		}
@@ -416,29 +434,34 @@ public class Peer{
 		}
 		peerPieceMap.put(message.peerID, peerBitfield);
 	}
-	private void processRequestMessage(Message message){
+	private void processRequestMessage(Message message){ // broken sends index not actual piece. piece of file is from reqpiece to (reqpiece * pieceSize)
 		//Payload consists of 4 byte piece index filed
-		int reqPiece = Integer.parseInt(message.payload);
+		int reqPiece = Integer.parseInt(message.payload); // index of piece requested
 		//Check if peer is choked or unchoked
 		// Chris use bellow for checking if this peer is choked or not I just added this feature-Nic
 		//Nic, thank you for this feature I will leave it using the feature and we can update if we need to during testing.-Christian
 		PeerTCPConnection requestee =peerTCPConnections.get(message.peerID);
 		if(!requestee.choked){ //If peer is not choked send them piece
 			if(this.havePieces[reqPiece])//Check for if this peer has the piece being requested.
-			{
+			{ // fix this should be the actual piece requested not the index of piece requested
 				String payload = Integer.toString(reqPiece); // I don't know what this should be
 				int length = payload.length(); // I don't know what this should be, depends on payload
 				requestee.send(new Message(length, MessageTypes.piece,payload));
 			}
 		}//Need an else statement for which message to send?
 	}
-	private void processPieceMessage(Message message){
+	private void processPieceMessage(Message message){ // done fixed
 		//Retrieve 4 byte piece index value
-		int recvPiece = Integer.parseInt(message.payload);
+		int recvPiece = peerTCPConnections.get(message.peerID).requestedPiece; // the piece i get is the piece i requested
 		//Update Current peers bitfield to have that piece
 		this.havePieces[recvPiece] = true;
 		//Log download completetion of this piece
-		logger.logDownloadingPiece(message.peerID, -1,-1); // fix to parse message payload into required fields
+		logger.logDownloadingPiece(message.peerID, recvPiece,message.length);
+		int startingIndex = recvPiece*pieceSize;
+		byte[] PiecesReceived = message.payload.getBytes();
+		for(int i = startingIndex; i < message.length + startingIndex; i++ ){ // add bytes received to my file
+			file[i] = PiecesReceived[i-startingIndex];
+		}
 		//Check havePieces to see if completed file
 		for(int i = 0; i < this.havePieces.length;i++ )
 		{
@@ -466,6 +489,7 @@ public class Peer{
 				if(peersPieces[i] && !requestedPieces[i]){ // request a piece that I don't have yet and I have not requested already
 					payload = i + "";
 					requestedPieces[i] = true; // just requested it so update
+					sender.requestedPiece = i; // used to track piece position
 					break;
 				}
 			}
@@ -481,14 +505,20 @@ public class Peer{
 				System.out.println(inbox.peek().type.toString());
 				inbox.remove();
 			}
-			if(haveFile){
+			if(haveFile && allPeersHaveFile){
 				logger.logDownloadCompletion();
+				try {
+					FileOutputStream fos = new FileOutputStream(desiredFileName);
+					fos.write(file, 0, file.length);
+				}
+				catch (Exception e){
+					System.err.println("Error writing file out.");
+				}
 				break; // exit job complete? ro do i keep running to help other peers
 			}
         }
     }
-    public static void main(String args[])
-    {
+    public static void main(String[] args){
     	final int peerID = Integer.parseInt(args[0]);  //peerID is specified at time of execution, pull it from args
         final String logFileName = "log_peer_" + args[0] + ".log";
         final String commonConfigFile = "Common.cfg";
@@ -496,30 +526,6 @@ public class Peer{
         
     	Peer me = new Peer(peerID, logFileName, commonConfigFile, peerInfoConfigFile);
         me.Connect();
-        //me.run(); work in progress
-
-		// message class testing
-        Message myMessage = new Message(5, Message.MessageTypes.unchoke,"Hello");
-        byte[] temp = myMessage.toBytes();
-        System.out.println(Arrays.toString(temp));
-        System.out.println(Arrays.toString((myMessage = new Message(temp,false,100)).toBytes()));
-        System.out.println(myMessage.toString());
-        System.out.println(Arrays.toString(temp = new Message(-10000).toBytes()));
-        System.out.println(Arrays.toString((myMessage = new Message(temp,true,101)).toBytes()));
-        System.out.println(myMessage.toString());
-        
-        //Logger testing
-        Logger myLog = new Logger("myLog2.txt", 7);
-		int[] prefNeighbors = new int[] {3,7,9,1};
-		myLog.logTCPConnection(1003);
-		myLog.logChangePrefNeighbors(prefNeighbors);
-		myLog.logChangeOptUnchokedNeighbor(14);
-		myLog.logUnchoking(15);
-		myLog.logChoking(16);
-		myLog.logRecvHaveMessage(17, 1200);
-		myLog.logRecvIntMessage(18);
-		myLog.logRecvNotIntMessage(19);
-		myLog.logDownloadingPiece(20, 1507, 1659);
-		myLog.logDownloadCompletion();
+        me.run(); //work in progress
     }
 }
