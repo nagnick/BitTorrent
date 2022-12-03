@@ -447,7 +447,7 @@ public class Peer{
 		// FIX SET peerConnection.iHaveFile to true if true somewhere above...
 		allPeersHaveFile = true;
 		peerTCPConnections.forEach((peerID, peerConnection) -> {
-			if(!peerConnection.iHaveFile){
+			if(!peerConnection.haveFile){
 				allPeersHaveFile = false;
 			}
 		});
@@ -469,7 +469,7 @@ public class Peer{
 		// FIX SET peerConnection.iHaveFile to true if true somewhere above...
 		allPeersHaveFile = true;
 		peerTCPConnections.forEach((peerID, peerConnection) -> {
-			if(!peerConnection.iHaveFile){
+			if(!peerConnection.haveFile){
 				allPeersHaveFile = false;
 			}
 		});

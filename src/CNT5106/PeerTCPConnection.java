@@ -21,7 +21,7 @@ public class PeerTCPConnection extends Thread { // spinning thread waiting for p
     boolean interested = false;
     boolean choked = true; // my view of this peer whether I have choked it or not
     boolean iamChoked = true; // this peers view of me
-    boolean iHaveFile = false; // used to decide when to terminate program
+    boolean haveFile = false; // used to decide when to terminate program
 
     public PeerTCPConnection(LinkedBlockingQueue<Message> inbox, Socket connection){ // pass in peer info to form tcp connection
         this.inbox = inbox;
