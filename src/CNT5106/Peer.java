@@ -465,29 +465,45 @@ public class Peer{
 	}
 	private void processBitfieldMessage(Message message){ // bitfeild is not processed right-Nick
 		//logger.lo no logger method for bitfield
-		Boolean[] peerBitfield = new Boolean[message.payload.length()];
-		char bits;
-		int bit = 0;
-		Boolean peerHaveFile = true;
-		for(int i =  0; i< message.payload.length();i++) // Fix
+		Boolean[] currentPeerPieceMapping = new Boolean[numPieces];
+		int segmentIndex = 0; //segment index value used to map the bits in each char to their piece index val
+		for(char charVal : message.payload.toCharArray()) //convert the payload into a char array and iterate through it to build peerPieceMap
 		{
-			bits =message.payload.charAt(i);
-			for(int j = 7;j >= 0;j++)//Starts with high bit
+			String bitString = Integer.toBinaryString(charVal); //get raw binary value of the current char in bits
+			for(int i=0; i< bitString.length(); i++) //iterate over the entire char's binary string value
 			{
-				bit = (bits&1<<j);
-				if(bit != 0)
+				int pieceIndex = i + 16*segmentIndex; //calculate current piece index based on what what bit we are on and what char we are looking at/
+														//chars in java are 16 bits in length, and the only unsigned type that works for what we need here
+				if(pieceIndex > numPieces) //if we overshoot how many pieces we have, end the loop
 				{
-					peerBitfield[i]= true;
-				}else
+					break;
+				}
+				if(bitString.charAt(i) == '1')
 				{
-					peerBitfield[i] = false;
-					peerHaveFile = false;
+					currentPeerPieceMapping[pieceIndex] = Boolean.TRUE;
+				}
+				else
+				{
+					currentPeerPieceMapping[pieceIndex] = Boolean.FALSE;
 				}
 			}
-			
+			segmentIndex++; //increment the segment index to get ready for the next char
 		}
-		peerTCPConnections.get(message.peerID).haveFile = peerHaveFile;
-		peerPieceMap.put(message.peerID, peerBitfield);
+
+		peerPieceMap.put(message.peerID, currentPeerPieceMapping); //update the peerPieceMap value for the current peer
+
+		PeerTCPConnection currentPeer = peerTCPConnections.get(message.peerID); //pull the current peer from map
+		if(Arrays.stream(currentPeerPieceMapping).toList().contains(Boolean.FALSE)) //peer doesn't have everything
+		{
+			currentPeer.haveFile = false;
+			peerTCPConnections.put(message.peerID,currentPeer);
+		}
+		else //peer does have everything
+		{
+			currentPeer.haveFile = true;
+			peerTCPConnections.put(message.peerID,currentPeer);
+		}
+
 		allPeersHaveFile = true;
 		peerTCPConnections.forEach((peerID, peerConnection) -> {
 			if(!peerConnection.haveFile){
