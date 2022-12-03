@@ -420,11 +420,18 @@ public class Peer{
 			Message notInterestedNotification = new Message(0, MessageTypes.notInterested, "");
 			peerTCPConnections.get(message.peerID).send(notInterestedNotification);
 		}
+		// FIX SET peerConnection.iHaveFile to true if true somewhere above...
+		allPeersHaveFile = true;
+		peerTCPConnections.forEach((peerID, peerConnection) -> {
+			if(!peerConnection.iHaveFile){
+				allPeersHaveFile = false;
+			}
+		});
 	}
 	private void processBitfieldMessage(Message message){ // add check for peers having file
 		//logger.lo no logger method for bitfield
 		Boolean[] peerBitfield = new Boolean[message.payload.length()];
-		for(int i =  0; i< message.payload.length();i++)
+		for(int i =  0; i< message.payload.length();i++) // FIX THEY ARE BITS NOT CHARS
 		{
 			if(message.payload.charAt(i) =='1')
 			{
@@ -435,6 +442,13 @@ public class Peer{
 			}
 		}
 		peerPieceMap.put(message.peerID, peerBitfield);
+		// FIX SET peerConnection.iHaveFile to true if true somewhere above...
+		allPeersHaveFile = true;
+		peerTCPConnections.forEach((peerID, peerConnection) -> {
+			if(!peerConnection.iHaveFile){
+				allPeersHaveFile = false;
+			}
+		});
 	}
 	private void processRequestMessage(Message message){ // done
 		//Payload consists of 4 byte piece index filed and
