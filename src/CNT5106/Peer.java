@@ -5,6 +5,8 @@ import java.net.ConnectException;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.UnknownHostException;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -362,7 +364,6 @@ public class Peer{
 				if (peersPieces[i] && !requestedPieces[i]) { // request a piece that they have and I have not requested already
 					payload = i + "";
 					requestedPieces[i] = true; // just requested it so update
-					peerTCPConnections.get(message.peerID).requestedPiece = i;
 					break;
 				}
 			}
@@ -436,9 +437,13 @@ public class Peer{
 		}
 		peerPieceMap.put(message.peerID, peerBitfield);
 	}
-	private void processRequestMessage(Message message){ //fixed?
+	private void processRequestMessage(Message message){ // done
 		//Payload consists of 4 byte piece index filed and
-		int reqPiece = Integer.parseInt(message.payload); // index of piece requested need to taake the 
+		ByteBuffer lengthBuff = ByteBuffer.allocate(4).order(ByteOrder.BIG_ENDIAN);
+		byte[] received = message.payload.getBytes();
+		//Retrieve 4 byte piece index value
+		int reqPiece = lengthBuff.put(received).get(0); // the piece requested
+		//Update Current peers bitfield to have that piece
 		//Check if peer is choked or unchoked
 		// Chris use bellow for checking if this peer is choked or not I just added this feature-Nic
 		//Nic, thank you for this feature I will leave it using the feature and we can update if we need to during testing.-Christian
@@ -447,7 +452,7 @@ public class Peer{
 			int startingIndex = reqPiece*pieceSize;
 			StringBuilder payload = new StringBuilder();
 			//Include piece index in beignning of message payload
-			payload.append(Integer.toString(reqPiece));
+			payload.append((char)reqPiece);
 			//piece of file is from reqpiece*pieceSize to (reqpiece * pieceSize) + pieceSize. not inclusive
 			for(int i = startingIndex; i < startingIndex + pieceSize && i < desiredFileSize; i++ ){ // add bytes received to my file
 				payload.append((char) file[i]);
@@ -455,17 +460,22 @@ public class Peer{
 				requestee.send(new Message(payload.length(), MessageTypes.piece, payload.toString()));
 		}
 	}
-	private void processPieceMessage(Message message){ // done fixed
+	private void processPieceMessage(Message message){ // done
+		ByteBuffer lengthBuff = ByteBuffer.allocate(4).order(ByteOrder.BIG_ENDIAN);
+		byte[] PiecesReceived = message.payload.getBytes();
+		byte[] indexOf = new byte[4];
+		for(int i = 0; i < 4; i++){
+			indexOf[i] = PiecesReceived[i];
+		}
 		//Retrieve 4 byte piece index value
-		int recvPiece = peerTCPConnections.get(message.peerID).requestedPiece; // the piece i get is the piece i requested
+		int recvPiece = lengthBuff.put(indexOf).get(0); // the piece i get is the piece i requested
 		//Update Current peers bitfield to have that piece
 		this.havePieces[recvPiece] = true;
 		//Log download completetion of this piece
 		logger.logDownloadingPiece(message.peerID, recvPiece,message.length);
 		int startingIndex = recvPiece*pieceSize;
-		byte[] PiecesReceived = message.payload.getBytes();//The fi
-		for(int i = startingIndex; i < message.length + startingIndex && i < desiredFileSize; i++ ){ // add bytes received to my file
-			file[i] = PiecesReceived[i-startingIndex+4];//Added the +4 to skip index
+		for(int i = startingIndex + 4; i < message.length + startingIndex && i < desiredFileSize; i++ ){ // add bytes received to my file
+			file[i] = PiecesReceived[i-startingIndex];
 		}
 		//Check havePieces to see if completed file
 		for(int i = 0; i < this.havePieces.length;i++ )
@@ -489,17 +499,16 @@ public class Peer{
 		if(!sender.iamChoked){ // if sender has not choked me request another piece keep ping pong going
 			// do not send if it has choked me because it won't send and will break the accuracy of the requestedPieces array
 			int length = 4; // 4 byte piece index
-			String payload = "";
+			StringBuilder payload = new StringBuilder();
 			Boolean[] peersPieces = peerPieceMap.get(message.peerID);
 			for (int i = 0; i < peersPieces.length && i < requestedPieces.length; i++){ // add check that it has not been requested??
 				if(peersPieces[i] && !requestedPieces[i]){ // request a piece that I don't have yet and I have not requested already
-					payload = i + "";
+					payload.append((char)i);
 					requestedPieces[i] = true; // just requested it so update
-					sender.requestedPiece = i; // used to track piece position
 					break;
 				}
 			}
-			sender.send(new Message(length,MessageTypes.request,payload));
+			sender.send(new Message(length,MessageTypes.request,payload.toString()));
 		}
 	}
     public void run(){ // file retrieval and peer file distribution done here
