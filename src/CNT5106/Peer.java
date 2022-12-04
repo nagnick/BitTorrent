@@ -245,10 +245,10 @@ public class Peer{
 			}
 		}
 		// add final zeros is numofPieces is not perfectly divisible by byte
-		for(int i = 0; i < havePieces.length%8; i++){
-			toSend = toSend << 1;
-		}
 		if(havePieces.length%8 != 0) {
+			for(int i = 0; i < 8 - (havePieces.length%8); i++){ // shift over last few places to leave trailing zeros...
+				toSend = toSend << 1;
+			}
 			payload[payload.length-1] = (byte)toSend;
 		}
 		return new Message(payload.length,MessageTypes.bitfield,payload);
@@ -462,12 +462,28 @@ public class Peer{
 			}
 		});
 	}
-	private void processBitfieldMessage(Message message){ // bitfeild is not processed right-Nick
-		//logger.lo no logger method for bitfield
+	private void processBitfieldMessage(Message message){ // done
 		Boolean[] currentPeerPieceMapping = new Boolean[numPieces];
+		PeerTCPConnection currentPeer = peerTCPConnections.get(message.peerID); //pull the current peer from map
+		currentPeer.haveFile = true; // set up to check if peer has file
 		// byte buffer you can use ben. call buff.put(mybyte); to add bytes to it or buff.putChar(myChar); for chars
-		//ByteBuffer buff = ByteBuffer.allocate(numPieces).order(ByteOrder.BIG_ENDIAN);
-		//buff.put(message.payload);
+//		ByteBuffer buff = ByteBuffer.allocate(numPieces).order(ByteOrder.BIG_ENDIAN);
+//		buff.put(message.payload);
+//		int toTest = buff.get();
+//		currentPeer.haveFile = true; // set up to check if peer has file
+//		for(int i = 0; i < numPieces; i++){
+//			if(i != 0 && i%8 == 0) {
+//				toTest = buff.get();
+//			}
+//
+//			if((toTest& 1) == 1){
+//				currentPeerPieceMapping[i] = Boolean.TRUE;
+//			}else{
+//				currentPeerPieceMapping[i] = Boolean.FALSE;
+//				currentPeer.haveFile = false; // missing a piece does not have file
+//			}
+//			toTest = toTest >> 1; // move to check next bit
+//		}
 		int segmentIndex = 0; //segment index value used to map the bits in each char to their piece index val
 		for(byte msgByte : message.payload) //iterate over each byte of the payload
 		{
@@ -486,25 +502,12 @@ public class Peer{
 				else
 				{
 					currentPeerPieceMapping[pieceIndex] = Boolean.FALSE;
+					currentPeer.haveFile = false; // missing a piece does not have file
 				}
 			}
 			segmentIndex++; //increment the segment index to get ready for the next char
 		}
-
 		peerPieceMap.put(message.peerID, currentPeerPieceMapping); //update the peerPieceMap value for the current peer
-
-		PeerTCPConnection currentPeer = peerTCPConnections.get(message.peerID); //pull the current peer from map
-		if(Arrays.stream(currentPeerPieceMapping).toList().contains(Boolean.FALSE)) //peer doesn't have everything
-		{
-			currentPeer.haveFile = false;
-			peerTCPConnections.put(message.peerID,currentPeer);
-		}
-		else //peer does have everything
-		{
-			currentPeer.haveFile = true;
-			peerTCPConnections.put(message.peerID,currentPeer);
-		}
-
 		allPeersHaveFile = true;
 		peerTCPConnections.forEach((peerID, peerConnection) -> {
 			if(!peerConnection.haveFile){
@@ -611,6 +614,4 @@ public class Peer{
         me.Connect();
         me.run(); //work in progress
     }
-	//TODO fix processBitField message to actually read a bitfield
-    //I think the processing of bits instead of bytes has been fixed "Not right" - Nick
 }
