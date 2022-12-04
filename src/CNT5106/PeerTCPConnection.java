@@ -59,8 +59,10 @@ public class PeerTCPConnection extends Thread { // spinning thread waiting for p
                 message.put(4,in.readNBytes(1));
                 if(messageLength != 0)
                     message.put(5,in.readNBytes(messageLength));
-                inbox.put(new Message(message.array(),false,peerID));
-                incrementTotalInMessages(); // used to track download rate for choking/unchoking
+                Message toPutInInbox = new Message(message.array(),false,peerID);
+                inbox.put(toPutInInbox);
+                if(toPutInInbox.type == Message.MessageTypes.piece)
+                    incrementTotalInMessages(); // used to track download rate for choking/unchoking
             }
         }
         catch (Exception e) {

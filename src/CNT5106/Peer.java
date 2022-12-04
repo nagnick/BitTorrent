@@ -292,7 +292,12 @@ public class Peer{
 						Arrays.fill(requestedPieces, haveFile); // don't request pieces I have so add to requested list
 						if (haveFile) { // if I have the file read it into memory
 							try {
-								Path path = Paths.get(desiredFileName); // broken need to fix
+								System.out.println(desiredFileName);
+								String filePath = System.getProperty("user.dir");
+								desiredFileName = myID +"\\"+ desiredFileName;
+								filePath = filePath + "\\"+ desiredFileName;
+								System.out.println(filePath);
+								Path path = Paths.get(filePath); // broken need to fix
 								file = Files.readAllBytes(path); // bring file into memory
 							} catch (Exception e) {
 								System.err.println("Error reading file to distribute");
@@ -520,7 +525,7 @@ public class Peer{
 			for(int i=0; i< bitString.length(); i++) //iterate over the entire char's binary string value
 			{
 				int pieceIndex = i + 8*segmentIndex; //calculate current piece index based on what what bit we are on and what byte we're looking at
-				if(pieceIndex > numPieces) //if we overshoot how many pieces we have, end the loop
+				if(pieceIndex >= numPieces) //if we overshoot how many pieces we have, end the loop
 				{
 					break;
 				}
@@ -556,27 +561,38 @@ public class Peer{
 		if(!requestee.choked){ //If peer is not choked send them piece
 			int startingIndex = reqPiece*pieceSize;
 			//Include piece index in beignning of message payload
-			ByteBuffer mybuff = ByteBuffer.allocate(pieceSize).order(ByteOrder.BIG_ENDIAN);
+			int filePieceSize = pieceSize;
+			if(reqPiece >= (desiredFileSize/pieceSize)){
+				filePieceSize = desiredFileSize%pieceSize;
+			}
+			ByteBuffer mybuff = ByteBuffer.allocate(filePieceSize + 4).order(ByteOrder.BIG_ENDIAN); // add 4 bytes for piece index
 			mybuff.putInt(reqPiece);
 			//piece of file is from reqpiece*pieceSize to (reqpiece * pieceSize) + pieceSize. not inclusive
-			for(int i = startingIndex; i < startingIndex + pieceSize && i < desiredFileSize; i++ ){ // add bytes received to my file
-				mybuff.put(file[i]);
-			}
-				requestee.send(new Message(pieceSize, MessageTypes.piece, mybuff.array()));
+			mybuff.put(file,startingIndex,filePieceSize);
+//			for(int i = startingIndex; i < (startingIndex + filePieceSize) && i < desiredFileSize; i++ ){ // add bytes received to my file
+//				mybuff.put(file,startingIndex,filePieceSize);
+//			}
+				requestee.send(new Message(mybuff.array().length, MessageTypes.piece, mybuff.array()));
+		}
+		else{ // should probably save this info as won't ask again....
+			System.out.println("Asked for piece but is choked so won't send");
 		}
 	}
 	private void processPieceMessage(Message message){ // done
-		ByteBuffer buff = ByteBuffer.allocate(message.length).order(ByteOrder.BIG_ENDIAN);
+		ByteBuffer buff = ByteBuffer.allocate(message.length).order(ByteOrder.BIG_ENDIAN).put(message.payload);
 		//Retrieve 4 byte piece index value
-		int recvPiece = buff.put(message.payload).getInt(0); // the piece i get is the piece i requested
+		int recvPiece = buff.getInt(0); // the piece i get is the piece i requested
 		//Update Current peers bitfield to have that piece
 		this.havePieces[recvPiece] = true;
 		//Log download completetion of this piece
-		logger.logDownloadingPiece(message.peerID, recvPiece,message.length);
+		logger.logDownloadingPiece(message.peerID, recvPiece,message.length-4);
 		int startingIndex = recvPiece*pieceSize;
-		for(int i = startingIndex; i < message.length + startingIndex && i < desiredFileSize; i++ ){ // add bytes received to my file
-			file[i] = buff.get();
-		}
+		System.out.println("BufferSize: " + buff.limit() + " Starting index: " + startingIndex+" Piece Requeste: "+ recvPiece + " Message Length: " + message.length + " endIdex in loop: " + (startingIndex + (message.length-4) + " Message payload length: "+ message.payload.length));
+		buff.position(4);
+		buff.get(file,startingIndex, message.length-4);
+//		for(int i = startingIndex; i < (startingIndex + (message.length-4)) || i < desiredFileSize; i++ ){ // add bytes received to my file
+//			file[i] = buff.get(file[i],);
+//		}
 		//Check havePieces to see if completed file
 		for(int i = 0; i < this.havePieces.length;i++ )
 		{
@@ -598,17 +614,16 @@ public class Peer{
 		PeerTCPConnection sender = peerTCPConnections.get(message.peerID);
 		if(!sender.iamChoked){ // if sender has not choked me request another piece keep ping pong going
 			// do not send if it has choked me because it won't send and will break the accuracy of the requestedPieces array
-			int length = 4; // 4 byte piece index
 			ByteBuffer mybuff = ByteBuffer.allocate(4).order(ByteOrder.BIG_ENDIAN);
 			Boolean[] peersPieces = peerPieceMap.get(message.peerID);
 			for (int i = 0; i < peersPieces.length && i < requestedPieces.length; i++){ // add check that it has not been requested??
 				if(peersPieces[i] && !requestedPieces[i]){ // request a piece that I don't have yet and I have not requested already
 					mybuff.putInt(i);
 					requestedPieces[i] = true; // just requested it so update
+					sender.send(new Message(4,MessageTypes.request,mybuff.array()));
 					break;
 				}
 			}
-			sender.send(new Message(length,MessageTypes.request,mybuff.array()));
 		}
 	}
     public void run(){ // file retrieval and peer file distribution done here
@@ -622,7 +637,7 @@ public class Peer{
 				inbox.remove();
 			}
 			if(haveFile && allPeersHaveFile){ // fix allPeersHaveFile is never changed to true when all peers have the file.
-				logger.logDownloadCompletion();
+				//logger.logDownloadCompletion(); processPiece will do this instead
 				try {
 					FileOutputStream fos = new FileOutputStream(desiredFileName);
 					fos.write(file, 0, file.length);
@@ -639,7 +654,6 @@ public class Peer{
         final String logFileName = "log_peer_" + args[0] + ".log";
         final String commonConfigFile = "Common.cfg";
         final String peerInfoConfigFile = "PeerInfo.cfg";
-        
     	Peer me = new Peer(peerID, logFileName, commonConfigFile, peerInfoConfigFile);
         me.Connect();
 		System.out.println("Connection Complete");
