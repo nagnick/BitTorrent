@@ -2,6 +2,7 @@ package CNT5106;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.nio.charset.Charset;
 import java.util.Arrays;
 
 public class Message {
@@ -56,6 +57,7 @@ public class Message {
     byte[] toBytes(){ // easy to send
         if(type == MessageTypes.handShake){
             ByteBuffer mybuff = ByteBuffer.allocate(32).order(ByteOrder.BIG_ENDIAN); // is this right little endian
+            System.out.println("handshake byte length of striing" + handShake.getBytes().length);
             mybuff.put(handShake.getBytes());
             mybuff.position(18).put((byte)0); // puts 1 zero
             mybuff.position(19).put((byte)0); // puts 1 zero

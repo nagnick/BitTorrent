@@ -1,7 +1,7 @@
 package CNT5106;
 
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
 import java.net.Socket;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -11,8 +11,8 @@ import java.util.concurrent.LinkedBlockingQueue;
 public class PeerTCPConnection extends Thread { // spinning thread waiting for peer messages
     LinkedBlockingQueue<Message> inbox;
     Socket connection;
-    ObjectInputStream in;
-    ObjectOutputStream out;
+    DataInputStream in;
+    DataOutputStream out;
     int peerID;
     int totalInMessages = 0;
     int totalOptimisticPeriods = 0;
@@ -27,22 +27,25 @@ public class PeerTCPConnection extends Thread { // spinning thread waiting for p
         this.inbox = inbox;
         this.connection = connection;
         try {
-            out = new ObjectOutputStream(connection.getOutputStream());
-            in = new ObjectInputStream(connection.getInputStream());
+            out = new DataOutputStream(connection.getOutputStream());
+            in = new DataInputStream(connection.getInputStream());
         }
         catch(Exception e){
             System.out.println("Error creating TCP connection ");
         }
     }
     public Message getHandShake(){ // use before starting thread and only once will fail if anyother message
-        byte[] messageBytes = {0,0,0,0,0,0,0,0,0}; // puts a zero int in message if bellow fails
+        byte[] messageBytes = new byte[32]; // puts a zero int in message if bellow fails
+        System.out.println(" got handShake");
         try {
             messageBytes = in.readNBytes(32);
         }
         catch (Exception e) {
-            System.out.println("Error reading TCPIn handshake");
+            System.out.println("Error reading TCPIn handshake" + e.toString());
         }
-        return new Message(messageBytes, true,peerID); // peerID not used for handshake peerId in message is read instead
+        Message toReturn = new Message(messageBytes, true,peerID);
+        System.out.println("returned handshake" + toReturn.toString());
+        return toReturn; // peerID not used for handshake peerId in message is read instead
     }
     public void start(){
         try {
@@ -65,9 +68,10 @@ public class PeerTCPConnection extends Thread { // spinning thread waiting for p
         }
     }
     public boolean send(Message message){
-        System.out.println("Sending message: " + message.toString());
+        System.out.println("Sending message: " + message.toString() + " length in bytes:" + message.toBytes().length);
         try {
             out.write(message.toBytes());
+            System.out.println("Message writen out");
             return true;
         }
         catch (Exception e){
