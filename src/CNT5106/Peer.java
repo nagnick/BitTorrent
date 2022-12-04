@@ -281,10 +281,10 @@ public class Peer{
         	peerInfoMatcher.reset(peerInfoLine); //match the line against the peer info regex so we can extract the attributes from subgroups.
         	if(peerInfoMatcher.find()) //only continue if the line is in expected format, otherwise silently ignore the line
         	{
-        		int currentPeerID = Integer.parseInt(peerInfoMatcher.group(0));
-        		String peerHostName = peerInfoMatcher.group(1);
-        		int peerListenPort = Integer.parseInt(peerInfoMatcher.group(2));
-        		boolean peerHasFile = (Objects.equals(peerInfoMatcher.group(3), "1"));
+        		int currentPeerID = Integer.parseInt(peerInfoMatcher.group(1));
+        		String peerHostName = peerInfoMatcher.group(2);
+        		int peerListenPort = Integer.parseInt(peerInfoMatcher.group(3));
+        		boolean peerHasFile = (Objects.equals(peerInfoMatcher.group(4), "1"));
         		
         		if(currentPeerID == myID)
         		{
