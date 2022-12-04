@@ -90,35 +90,49 @@ public class Peer{
 
 
         //read in the common config file and set the other attributes for the peer.
-    	Pattern prefNeighborsRegex = Pattern.compile("^(NumberOfPreferredNeighbors)\\s(\\d{1,})$", Pattern.CASE_INSENSITIVE); //regex pattern for number of preferred neighbors config directive
-    	Pattern unchokingIntervalRegex = Pattern.compile("^(UnchokingInterval)\\s(\\d{1,})$", Pattern.CASE_INSENSITIVE); //regex pattern for unchoking interval config directive
-    	Pattern optUnchokingIntervalRegex = Pattern.compile("^(OptimisticUnchokingInterval)\\s(\\d{1,})$", Pattern.CASE_INSENSITIVE); //regex pattern for optimistic unchoking interval config directive
-    	Pattern fileNameRegex = Pattern.compile("^(FileName)\\s(.{1,})$", Pattern.CASE_INSENSITIVE); //regex pattern for file name config directive
-    	Pattern	fileSizeRegex = Pattern.compile("^(FileSize)\\s(\\d{1,})$", Pattern.CASE_INSENSITIVE); //regex pattern for file size config directive
-    	Pattern pieceSizeRegex = Pattern.compile("^(PieceSize)\\s(\\d{1,})$", Pattern.CASE_INSENSITIVE); //regex pattern for piece size config directive
+    	Pattern prefNeighborsRegex = Pattern.compile("^(NumberOfPreferredNeighbors)\\s(\\d{1,})", Pattern.CASE_INSENSITIVE); //regex pattern for number of preferred neighbors config directive
+    	Pattern unchokingIntervalRegex = Pattern.compile("^(UnchokingInterval)\\s(\\d{1,})", Pattern.CASE_INSENSITIVE); //regex pattern for unchoking interval config directive
+    	Pattern optUnchokingIntervalRegex = Pattern.compile("^(OptimisticUnchokingInterval)\\s(\\d{1,})", Pattern.CASE_INSENSITIVE); //regex pattern for optimistic unchoking interval config directive
+    	Pattern fileNameRegex = Pattern.compile("^(FileName)\\s(.{1,})", Pattern.CASE_INSENSITIVE); //regex pattern for file name config directive
+    	Pattern	fileSizeRegex = Pattern.compile("^(FileSize)\\s(\\d{1,})", Pattern.CASE_INSENSITIVE); //regex pattern for file size config directive
+    	Pattern pieceSizeRegex = Pattern.compile("^(PieceSize)\\s(\\d{1,})", Pattern.CASE_INSENSITIVE); //regex pattern for piece size config directive
+		//create dedicated matcher objects since java keeps state internally with matcher objects
+		Matcher prefNeighborsMatcher = prefNeighborsRegex.matcher("");
+		Matcher unchokingIntervalMatcher = unchokingIntervalRegex.matcher("");
+		Matcher optUnchokingIntervalMatcher = optUnchokingIntervalRegex.matcher("");
+		Matcher fileNameMatcher = fileNameRegex.matcher("");
+		Matcher fileSizeMatcher = fileSizeRegex.matcher("");
+		Matcher pieceSizeMatcher = pieceSizeRegex.matcher("");
     	try {
 			Scanner configFile = new Scanner(new File(commonConfigFileName));
 			while (configFile.hasNextLine()) //keep looping while we have more lines to read
 			{
 				System.out.println("Parsing a line");
 				String configLine = configFile.nextLine(); //pull in the config line
-				if (prefNeighborsRegex.matcher(configLine).find()) //config line is for number of preferred neighbors
+				System.out.println(configLine);
+				prefNeighborsMatcher.reset(configLine); //explicitly reset each matcher's state so it parses each line fresh
+				unchokingIntervalMatcher.reset(configLine);
+				optUnchokingIntervalMatcher.reset(configLine);
+				fileNameMatcher.reset(configLine);
+				fileSizeMatcher.reset(configLine);
+				pieceSizeMatcher.reset(configLine);
+				if (prefNeighborsMatcher.find()) //config line is for number of preferred neighbors
 				{
-					this.numPreferredPeers = Integer.parseInt(prefNeighborsRegex.matcher(configLine).group(1)); //extract the value for config directive from regex, cast to int, and store it.
-				} else if (unchokingIntervalRegex.matcher(configLine).find()) {
-					this.unchokingInterval = Integer.parseInt(unchokingIntervalRegex.matcher(configLine).group(1)); //extract the value for config directive from regex, cast to int, and store it.
-				} else if (optUnchokingIntervalRegex.matcher(configLine).find()) {
-					this.optimisticUnchokingInterval = Integer.parseInt(optUnchokingIntervalRegex.matcher(configLine).group(1)); //extract the value for config directive from regex, cast to int, and store it.
-				} else if (fileNameRegex.matcher(configLine).find()) {
-					this.desiredFileName = fileNameRegex.matcher(configLine).group(1);
-				} else if (fileSizeRegex.matcher(configLine).find()) {
-					this.desiredFileSize = Integer.parseInt(fileSizeRegex.matcher(configLine).group(1));
-				} else if (pieceSizeRegex.matcher(configLine).find()) {
-					this.pieceSize = Integer.parseInt(pieceSizeRegex.matcher(configLine).group(1));
+					this.numPreferredPeers = Integer.parseInt(prefNeighborsMatcher.group(2)); //extract the value for config directive from regex, cast to int, and store it.
+				} else if (unchokingIntervalMatcher.find()) {
+					this.unchokingInterval = Integer.parseInt(unchokingIntervalMatcher.group(2)); //extract the value for config directive from regex, cast to int, and store it.
+				} else if (optUnchokingIntervalMatcher.find()) {
+					this.optimisticUnchokingInterval = Integer.parseInt(optUnchokingIntervalMatcher.group(2)); //extract the value for config directive from regex, cast to int, and store it.
+				} else if (fileNameMatcher.find()) {
+					this.desiredFileName = fileNameMatcher.group(2);
+				} else if (fileSizeMatcher.find()) {
+					this.desiredFileSize = Integer.parseInt(fileSizeMatcher.group(2));
+				} else if (pieceSizeMatcher.find()) {
+					this.pieceSize = Integer.parseInt(pieceSizeMatcher.group(2));
 				}
 			}
-			System.out.println(optimisticUnchokingInterval);
-			System.out.println(unchokingInterval);
+			//System.out.println(optimisticUnchokingInterval);
+			//System.out.println(unchokingInterval);
 			configFile.close(); //we're done with the common config file, close it out.
 			numPieces = (int) (Math.ceil((double) (desiredFileSize) / (double) (pieceSize)));
 			this.havePieces = new boolean[numPieces]; //init the pieces array to track what pieces we have
@@ -259,10 +273,12 @@ public class Peer{
         int currentLineNumber = 0; //keep track of what line number we're on.as it determines what we should do when we hit our own entry
     	boolean isFirstPeer = false; //are we the first peer listed in the file?
     	int serverListenPort = 0; //what port we should be listening on
-    	
+
+		Matcher peerInfoMatcher = peerInfoRegex.matcher(""); //init peer info matcher with blank string so we can reset it for each line
+
         while(peerInfoFile.hasNextLine()) { // start connecting to peers change while peer list not empty from manifest file
         	String peerInfoLine = peerInfoFile.nextLine(); //pull the current line into a string
-        	Matcher peerInfoMatcher = peerInfoRegex.matcher(peerInfoLine); //match the line against the peer info regex so we can extract the attributes from subgroups.
+        	peerInfoMatcher.reset(peerInfoLine); //match the line against the peer info regex so we can extract the attributes from subgroups.
         	if(peerInfoMatcher.find()) //only continue if the line is in expected format, otherwise silently ignore the line
         	{
         		int currentPeerID = Integer.parseInt(peerInfoMatcher.group(0));
