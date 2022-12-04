@@ -22,10 +22,12 @@ public class PeerTCPConnection extends Thread { // spinning thread waiting for p
     boolean choked = true; // my view of this peer whether I have choked it or not
     boolean iamChoked = true; // this peers view of me
     boolean haveFile = false; // used to decide when to terminate program
+    private volatile boolean terminate; // to kill threads
 
     public PeerTCPConnection(LinkedBlockingQueue<Message> inbox, Socket connection){ // pass in peer info to form tcp connection
         this.inbox = inbox;
         this.connection = connection;
+        terminate = false;
         try {
             out = new DataOutputStream(connection.getOutputStream());
             in = new DataInputStream(connection.getInputStream());
@@ -50,7 +52,7 @@ public class PeerTCPConnection extends Thread { // spinning thread waiting for p
     public void run(){
         try {
             // tcp network stuff
-            while(!connection.isClosed()) { // testing required
+            while(!connection.isClosed() && !terminate) { // testing required
                 // read bytes and create message to put in message queue inbox
                 ByteBuffer lengthBuff = ByteBuffer.allocate(4).order(ByteOrder.BIG_ENDIAN);
                 int messageLength = lengthBuff.put(in.readNBytes(4)).getInt(0);
@@ -84,10 +86,11 @@ public class PeerTCPConnection extends Thread { // spinning thread waiting for p
     }
     public void close(){
         try {
-            connection.close();
             in.close();
             out.flush();
             out.close();
+            connection.close();
+            terminate = true;
         }
         catch (Exception e){
             System.out.println("Error closing TCP connection" + e);

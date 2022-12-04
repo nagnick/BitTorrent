@@ -63,8 +63,10 @@ public class Peer{
     int numPieces; //the total number of pieces of the file, used as part of bitfield logic.
     boolean haveFile; //indicate if I have entire file or not
 	boolean allPeersHaveFile = false; // used to decide when to exit. if all peers have it and so do I then exit.
+	boolean terminate = false; // controls all the threads.
     boolean[] havePieces; //track what pieces I have by index value
 	boolean[] requestedPieces; // track pieces I have requested from peers
+	boolean startedWithFile = false; // used to decide when to output file
 	byte [] file; // actual file loaded in on init if peer has the file.
 	Logger logger;
     Thread serverThread;
@@ -288,16 +290,16 @@ public class Peer{
 						serverListenPort = peerListenPort;
 						System.out.println("Listening on port:" + peerListenPort);
 						haveFile = peerHasFile;
+						startedWithFile = haveFile;
 						Arrays.fill(havePieces, haveFile); //set the initial values of the pieces array based on whether we've got the entire file.
 						Arrays.fill(requestedPieces, haveFile); // don't request pieces I have so add to requested list
 						if (haveFile) { // if I have the file read it into memory
 							try {
 								System.out.println(desiredFileName);
-								String filePath = System.getProperty("user.dir");
 								desiredFileName = myID +"\\"+ desiredFileName;
-								filePath = filePath + "\\"+ desiredFileName;
-								System.out.println(filePath);
-								Path path = Paths.get(filePath); // broken need to fix
+								desiredFileName = System.getProperty("user.dir") + "\\"+ desiredFileName;
+								System.out.println(desiredFileName);
+								Path path = Paths.get(desiredFileName);
 								file = Files.readAllBytes(path); // bring file into memory
 							} catch (Exception e) {
 								System.err.println("Error reading file to distribute");
@@ -348,7 +350,7 @@ public class Peer{
 			serverThread = new Thread(() -> { // listen for other peers wishing to connect with me on seperate thread
 				try { // fix this and connection phase to avoid duplicate connections
 					ServerSocket listener = new ServerSocket(serverPort); // passive listener on own thread
-					while (true) { // need to add map duplicate insert checks as some peers may try to connect after we have already connected
+					while (!Thread.currentThread().isInterrupted()) { // need to add map duplicate insert checks as some peers may try to connect after we have already connected
 						Socket peerSocket = listener.accept(); // this blocks waiting for new connections so must be on own thread
 						PeerTCPConnection peerConnection = new PeerTCPConnection(inbox, peerSocket); // new connection
 						peerConnection.send(new Message(myID));// send handshake always first step
@@ -421,7 +423,7 @@ public class Peer{
 					ByteBuffer mybuff = ByteBuffer.allocate(4).order(ByteOrder.BIG_ENDIAN);
 					mybuff.putInt(i);
 					peerTCPConnections.get(message.peerID).send(new Message(4, MessageTypes.request, mybuff.array()));
-					requestedPieces[i] = true; // just requested it so update
+					//requestedPieces[i] = true; // just requested it so update
 					break;
 				}
 			}
@@ -584,6 +586,7 @@ public class Peer{
 		int recvPiece = buff.getInt(0); // the piece i get is the piece i requested
 		//Update Current peers bitfield to have that piece
 		this.havePieces[recvPiece] = true;
+		requestedPieces[recvPiece] = true; // just got it so update to not request anymore
 		//Log download completetion of this piece
 		logger.logDownloadingPiece(message.peerID, recvPiece,message.length-4);
 		int startingIndex = recvPiece*pieceSize;
@@ -599,7 +602,6 @@ public class Peer{
 			if(this.havePieces[i])
 			{
 				this.haveFile = true;
-				logger.logDownloadCompletion(); //Log completion of download
 			}else
 			{
 				this.haveFile = false;
@@ -619,7 +621,7 @@ public class Peer{
 			for (int i = 0; i < peersPieces.length && i < requestedPieces.length; i++){ // add check that it has not been requested??
 				if(peersPieces[i] && !requestedPieces[i]){ // request a piece that I don't have yet and I have not requested already
 					mybuff.putInt(i);
-					requestedPieces[i] = true; // just requested it so update
+					//requestedPieces[i] = true; // just requested it so update
 					sender.send(new Message(4,MessageTypes.request,mybuff.array()));
 					break;
 				}
@@ -636,15 +638,28 @@ public class Peer{
 				System.out.println(inbox.peek().type.toString());
 				inbox.remove();
 			}
-			if(haveFile && allPeersHaveFile){ // fix allPeersHaveFile is never changed to true when all peers have the file.
-				//logger.logDownloadCompletion(); processPiece will do this instead
+			if(haveFile && !startedWithFile){
+				logger.logDownloadCompletion();
 				try {
-					FileOutputStream fos = new FileOutputStream(desiredFileName);
-					fos.write(file, 0, file.length);
+					Path path = Paths.get(desiredFileName); // broken need to fix
+					Files.write(path,file);
+//					FileOutputStream fos = new FileOutputStream(System.getProperty("user.dir") + "\\"+ desiredFileName);
+//					fos.write(file, 0, file.length);
 				}
 				catch (Exception e){
 					System.err.println("Error writing file out.");
 				}
+				startedWithFile = true;
+			}
+			if(haveFile && allPeersHaveFile){ // fix allPeersHaveFile is never changed to true when all peers have the file.
+				//kill everything
+				regularTimer.cancel();
+				optimisticTimer.cancel();
+				terminate = true;
+				serverThread.interrupt();
+				peerTCPConnections.forEach((peerID, peerConnection) -> {
+					peerConnection.close();
+				});
 				break; // exit job complete? ro do i keep running to help other peers
 			}
         }
