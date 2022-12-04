@@ -134,18 +134,19 @@ public class Peer{
 			numPieces = (int) (Math.ceil((double) (desiredFileSize) / (double) (pieceSize)));
 			this.havePieces = new boolean[numPieces]; //init the pieces array to track what pieces we have
 			this.requestedPieces = new boolean[numPieces];
-			Arrays.fill(havePieces, haveFile); //set the initial values of the pieces array based on whether we've got the entire file.
-			Arrays.fill(requestedPieces, haveFile); // don't request pieces I have so add to requested list
-			if (haveFile) { // if I have the file read it into memory
-				try {
-					Path path = Paths.get(desiredFileName);
-					file = Files.readAllBytes(path); // bring file into memory
-				} catch (Exception e) {
-					System.err.println("Error reading file to distribute");
-				}
-			} else {
-				file = new byte[desiredFileSize]; // init space to save the file.
-			}
+			// moved to connect have file not set here
+//			Arrays.fill(havePieces, haveFile); //set the initial values of the pieces array based on whether we've got the entire file.
+//			Arrays.fill(requestedPieces, haveFile); // don't request pieces I have so add to requested list
+//			if (haveFile) { // if I have the file read it into memory
+//				try {
+//					Path path = Paths.get(desiredFileName);
+//					file = Files.readAllBytes(path); // bring file into memory
+//				} catch (Exception e) {
+//					System.err.println("Error reading file to distribute");
+//				}
+//			} else {
+//				file = new byte[desiredFileSize]; // init space to save the file.
+//			}
 		}
 		catch(Exception e){
 			System.err.println(e.getMessage());
@@ -240,11 +241,11 @@ public class Peer{
 		}
 	}
 	private Message makeMyBitFieldMessage(){ // done
-		byte[] payload = new byte[numPieces];
+		byte[] payload = new byte[(int)Math.ceil(((double)numPieces)/8)];
 		int toSend = 0;
 		for(int i = 0; i < havePieces.length; i++){
 			if(i != 0 && i%8 == 0){
-				payload[i/8] = (byte)toSend;
+				payload[(i-1)/8] = (byte)toSend;
 				toSend =0;
 			}
 			toSend = toSend << 1;
@@ -287,6 +288,19 @@ public class Peer{
 						serverListenPort = peerListenPort;
 						System.out.println("Listening on port:" + peerListenPort);
 						haveFile = peerHasFile;
+						Arrays.fill(havePieces, haveFile); //set the initial values of the pieces array based on whether we've got the entire file.
+						Arrays.fill(requestedPieces, haveFile); // don't request pieces I have so add to requested list
+						if (haveFile) { // if I have the file read it into memory
+							try {
+								Path path = Paths.get(desiredFileName); // broken need to fix
+								file = Files.readAllBytes(path); // bring file into memory
+							} catch (Exception e) {
+								System.err.println("Error reading file to distribute");
+							}
+						} else {
+							file = new byte[desiredFileSize]; // init space to save the file.
+						}
+						System.out.println("Peer has file :" + haveFile);
 						if (currentLineNumber == 0) //we're the first peer
 						{
 							isFirstPeer = true;
@@ -305,7 +319,7 @@ public class Peer{
 								// important later when messages are mixed in queue to track their origin
 
 								peerConnection.start(); // start that peers reading thread
-								peerConnection.send(makeMyBitFieldMessage()); // sends out bit field of pieces I have upon connection
+								//peerConnection.send(makeMyBitFieldMessage()); // sends out bit field of pieces I have upon connection
 								peerTCPConnections.put(peerHandshake.peerID, peerConnection);
 								System.out.println("Added new peer Connect phase");
 							}
@@ -321,6 +335,9 @@ public class Peer{
 				}
 				currentLineNumber++;
 			}
+			peerTCPConnections.forEach((peerID, peerConnection) -> {
+				peerConnection.send(makeMyBitFieldMessage());
+			});
 // use this lambda style if you need to spin up a random thread at any point just dont capture it
 			final int serverPort = serverListenPort;
 			serverThread = new Thread(() -> { // listen for other peers wishing to connect with me on seperate thread
@@ -337,7 +354,6 @@ public class Peer{
 						System.out.println("Before START");
 						peerConnection.start(); // start that peers reading thread
 						System.out.println("After START");
-						peerTCPConnections.put(peerHandshake.peerID, peerConnection);
 						//THIS LOGIC MUST BE TESTED HOW DOES OTHER PEER KNOW IT IS DUPLICATE CONNECTION????
 						if (peerTCPConnections.get(peerHandshake.peerID) == null) { // if not in map put in
 							System.out.println("Before make bitfeild");
@@ -348,6 +364,7 @@ public class Peer{
 							System.out.println("Added new peer through server thread");
 						} else { // if in map don't need two connections to peer so close it
 							peerConnection.close();
+							System.out.println("Already in map???");
 						}
 					}
 				} catch (Exception e) {
@@ -474,7 +491,7 @@ public class Peer{
 			}
 		});
 	}
-	private void processBitfieldMessage(Message message){ // done
+	private void processBitfieldMessage(Message message){ // done // fix goes beyond bounds pieceIndex exceeeds array length
 		Boolean[] currentPeerPieceMapping = new Boolean[numPieces];
 		PeerTCPConnection currentPeer = peerTCPConnections.get(message.peerID); //pull the current peer from map
 		currentPeer.haveFile = true; // set up to check if peer has file

@@ -47,7 +47,7 @@ public class PeerTCPConnection extends Thread { // spinning thread waiting for p
         System.out.println("returned handshake" + toReturn.toString());
         return toReturn; // peerID not used for handshake peerId in message is read instead
     }
-    public void start(){
+    public void run(){
         try {
             // tcp network stuff
             while(!connection.isClosed()) { // testing required
@@ -71,11 +71,12 @@ public class PeerTCPConnection extends Thread { // spinning thread waiting for p
         System.out.println("Sending message: " + message.toString() + " length in bytes:" + message.toBytes().length);
         try {
             out.write(message.toBytes());
+            out.flush();
             System.out.println("Message writen out");
             return true;
         }
         catch (Exception e){
-            System.out.println("Error writing bytes in send method");
+            System.out.println("Error writing bytes in send method"+ e);
         }
         return false;
     }
@@ -87,7 +88,7 @@ public class PeerTCPConnection extends Thread { // spinning thread waiting for p
             out.close();
         }
         catch (Exception e){
-            System.out.println("Error closing TCP connection");
+            System.out.println("Error closing TCP connection" + e);
         }
     }
     public void setPeerId(int ID){
