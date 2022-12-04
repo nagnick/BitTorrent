@@ -96,55 +96,48 @@ public class Peer{
     	Pattern fileNameRegex = Pattern.compile("^(FileName)\\s(.{1,})$", Pattern.CASE_INSENSITIVE); //regex pattern for file name config directive
     	Pattern	fileSizeRegex = Pattern.compile("^(FileSize)\\s(\\d{1,})$", Pattern.CASE_INSENSITIVE); //regex pattern for file size config directive
     	Pattern pieceSizeRegex = Pattern.compile("^(PieceSize)\\s(\\d{1,})$", Pattern.CASE_INSENSITIVE); //regex pattern for piece size config directive
-    	
-    	Scanner configFile = new Scanner(commonConfigFileName);
-    	while(configFile.hasNextLine()) //keep looping while we have more lines to read
-    	{
-    		String configLine = configFile.nextLine(); //pull in the config line
-    		if(prefNeighborsRegex.matcher(configLine).find()) //config line is for number of preferred neighbors
-    		{
-    			this.numPreferredPeers = Integer.parseInt(prefNeighborsRegex.matcher(configLine).group(1)); //extract the value for config directive from regex, cast to int, and store it.
-    		}
-    		else if(unchokingIntervalRegex.matcher(configLine).find())
-    		{
-    			this.unchokingInterval = Integer.parseInt(unchokingIntervalRegex.matcher(configLine).group(1)); //extract the value for config directive from regex, cast to int, and store it.
-    		}
-    		else if(optUnchokingIntervalRegex.matcher(configLine).find())
-    		{
-    			this.optimisticUnchokingInterval = Integer.parseInt(optUnchokingIntervalRegex.matcher(configLine).group(1)); //extract the value for config directive from regex, cast to int, and store it.
-    		}
-    		else if(fileNameRegex.matcher(configLine).find())
-    		{
-    			this.desiredFileName = fileNameRegex.matcher(configLine).group(1);
-    		}
-    		else if(fileSizeRegex.matcher(configLine).find())
-    		{
-    			this.desiredFileSize = Integer.parseInt(fileSizeRegex.matcher(configLine).group(1));
-    		}
-    		else if(pieceSizeRegex.matcher(configLine).find())
-    		{
-    			this.pieceSize = Integer.parseInt(pieceSizeRegex.matcher(configLine).group(1));
-    		}
-    	}
-		System.out.println(optimisticUnchokingInterval);
-		System.out.println(unchokingInterval);
-    	configFile.close(); //we're done with the common config file, close it out.
-    	numPieces = (int)(Math.ceil((double)(desiredFileSize)/(double)(pieceSize)));
-		this.havePieces = new boolean[numPieces]; //init the pieces array to track what pieces we have
-		this.requestedPieces = new boolean[numPieces];
-		Arrays.fill(havePieces, haveFile); //set the initial values of the pieces array based on whether we've got the entire file.
-		Arrays.fill(requestedPieces,haveFile); // don't request pieces I have so add to requested list
-		if(haveFile){ // if I have the file read it into memory
-			try {
-				Path path = Paths.get(desiredFileName);
-				file =  Files.readAllBytes(path); // bring file into memory
+    	try {
+			Scanner configFile = new Scanner(new File(commonConfigFileName));
+			while (configFile.hasNextLine()) //keep looping while we have more lines to read
+			{
+				System.out.println("Parsing a line");
+				String configLine = configFile.nextLine(); //pull in the config line
+				if (prefNeighborsRegex.matcher(configLine).find()) //config line is for number of preferred neighbors
+				{
+					this.numPreferredPeers = Integer.parseInt(prefNeighborsRegex.matcher(configLine).group(1)); //extract the value for config directive from regex, cast to int, and store it.
+				} else if (unchokingIntervalRegex.matcher(configLine).find()) {
+					this.unchokingInterval = Integer.parseInt(unchokingIntervalRegex.matcher(configLine).group(1)); //extract the value for config directive from regex, cast to int, and store it.
+				} else if (optUnchokingIntervalRegex.matcher(configLine).find()) {
+					this.optimisticUnchokingInterval = Integer.parseInt(optUnchokingIntervalRegex.matcher(configLine).group(1)); //extract the value for config directive from regex, cast to int, and store it.
+				} else if (fileNameRegex.matcher(configLine).find()) {
+					this.desiredFileName = fileNameRegex.matcher(configLine).group(1);
+				} else if (fileSizeRegex.matcher(configLine).find()) {
+					this.desiredFileSize = Integer.parseInt(fileSizeRegex.matcher(configLine).group(1));
+				} else if (pieceSizeRegex.matcher(configLine).find()) {
+					this.pieceSize = Integer.parseInt(pieceSizeRegex.matcher(configLine).group(1));
+				}
 			}
-			catch (Exception e){
-				System.err.println("Error reading file to distribute");
+			System.out.println(optimisticUnchokingInterval);
+			System.out.println(unchokingInterval);
+			configFile.close(); //we're done with the common config file, close it out.
+			numPieces = (int) (Math.ceil((double) (desiredFileSize) / (double) (pieceSize)));
+			this.havePieces = new boolean[numPieces]; //init the pieces array to track what pieces we have
+			this.requestedPieces = new boolean[numPieces];
+			Arrays.fill(havePieces, haveFile); //set the initial values of the pieces array based on whether we've got the entire file.
+			Arrays.fill(requestedPieces, haveFile); // don't request pieces I have so add to requested list
+			if (haveFile) { // if I have the file read it into memory
+				try {
+					Path path = Paths.get(desiredFileName);
+					file = Files.readAllBytes(path); // bring file into memory
+				} catch (Exception e) {
+					System.err.println("Error reading file to distribute");
+				}
+			} else {
+				file = new byte[desiredFileSize]; // init space to save the file.
 			}
 		}
-		else{
-			file = new byte[desiredFileSize]; // init space to save the file.
+		catch(Exception e){
+			System.err.println(e.getMessage());
 		}
     }
 	public void timerUp(boolean optimistic){
