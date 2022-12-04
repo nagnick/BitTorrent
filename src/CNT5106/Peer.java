@@ -90,7 +90,7 @@ public class Peer{
 
 
         //read in the common config file and set the other attributes for the peer.
-    	Pattern prefNeighborsRegex = Pattern.compile("^(NUmberOfPreferredNeighbors)\\s(\\d{1,})$", Pattern.CASE_INSENSITIVE); //regex pattern for number of preferred neighbors config directive
+    	Pattern prefNeighborsRegex = Pattern.compile("^(NumberOfPreferredNeighbors)\\s(\\d{1,})$", Pattern.CASE_INSENSITIVE); //regex pattern for number of preferred neighbors config directive
     	Pattern unchokingIntervalRegex = Pattern.compile("^(UnchokingInterval)\\s(\\d{1,})$", Pattern.CASE_INSENSITIVE); //regex pattern for unchoking interval config directive
     	Pattern optUnchokingIntervalRegex = Pattern.compile("^(OptimisticUnchokingInterval)\\s(\\d{1,})$", Pattern.CASE_INSENSITIVE); //regex pattern for optimistic unchoking interval config directive
     	Pattern fileNameRegex = Pattern.compile("^(FileName)\\s(.{1,})$", Pattern.CASE_INSENSITIVE); //regex pattern for file name config directive
@@ -126,6 +126,8 @@ public class Peer{
     			this.pieceSize = Integer.parseInt(pieceSizeRegex.matcher(configLine).group(1));
     		}
     	}
+		System.out.println(optimisticUnchokingInterval);
+		System.out.println(unchokingInterval);
     	configFile.close(); //we're done with the common config file, close it out.
     	numPieces = (int)(Math.ceil((double)(desiredFileSize)/(double)(pieceSize)));
 		this.havePieces = new boolean[numPieces]; //init the pieces array to track what pieces we have
@@ -224,10 +226,12 @@ public class Peer{
 	public void setAndRunTimer(boolean optimistic){ // the scheduled task runs constantly after each period is up
 		if (optimistic){
 			// set optimistic unchoke timer
+			System.out.println(optimisticUnchokingInterval);
 			timer.schedule(optimisticTimer,0,(long)(optimisticUnchokingInterval)*1000); // milli to seconds
 
 		}else{
 			// set regular unchoke timer
+			System.out.println(unchokingInterval);
 			timer.schedule(regularTimer,0,(long)(unchokingInterval)*1000); // milli to seconds
 		}
 	}
