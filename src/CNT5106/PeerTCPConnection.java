@@ -8,7 +8,8 @@ import java.nio.ByteOrder;
 import java.util.Comparator;
 import java.util.concurrent.LinkedBlockingQueue;
 
-public class PeerTCPConnection extends Thread { // spinning thread waiting for peer messages
+public class PeerTCPConnection implements Runnable { // spinning thread waiting for peer messages
+    Thread thread;
     LinkedBlockingQueue<Message> inbox;
     Socket connection;
     DataInputStream in;
@@ -49,10 +50,14 @@ public class PeerTCPConnection extends Thread { // spinning thread waiting for p
         System.out.println("returned handshake" + toReturn.toString());
         return toReturn; // peerID not used for handshake peerId in message is read instead
     }
+    public void start() {
+        thread = new Thread(this);
+        thread.start();
+    }
     public void run(){
         try {
             // tcp network stuff
-            while(!connection.isClosed() && !terminate) { // testing required
+            while(!connection.isClosed() && !terminate && !thread.isInterrupted()) { // testing required
                 // read bytes and create message to put in message queue inbox
                 ByteBuffer lengthBuff = ByteBuffer.allocate(4).order(ByteOrder.BIG_ENDIAN);
                 int messageLength = lengthBuff.put(in.readNBytes(4)).getInt(0);
@@ -67,8 +72,12 @@ public class PeerTCPConnection extends Thread { // spinning thread waiting for p
                     incrementTotalInMessages(); // used to track download rate for choking/unchoking
             }
         }
+        catch (InterruptedException e){
+            Thread.currentThread().interrupt();
+            System.out.println("Thread was interrupted" + e);
+        }
         catch (Exception e) {
-            System.out.println("Error running TCPIn thread");
+            System.out.println("Error running TCPIn thread" + e);
         }
     }
     public boolean send(Message message){
@@ -86,9 +95,11 @@ public class PeerTCPConnection extends Thread { // spinning thread waiting for p
     }
     public void close(){
         try {
-            in.close();
+            thread.interrupt();// ensure clean exit
             out.flush();
             out.close();
+            in.close();
+            thread.join();
             connection.close();
             terminate = true;
         }

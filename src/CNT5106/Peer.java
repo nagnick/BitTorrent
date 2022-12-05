@@ -27,7 +27,7 @@ import java.util.Timer;
 
 import static CNT5106.Message.MessageTypes;
 
-public class Peer{
+public class Peer implements Runnable{
 	public static class TCPConnectionDownloadRateComparator implements Comparator<PeerTCPConnection> { // used by MAX priority queue in timerup function
 		@Override
 		public int compare(PeerTCPConnection x, PeerTCPConnection y) {
@@ -54,6 +54,7 @@ public class Peer{
     String logFileName; //the name of the file this peer should be logging to
     String commonConfigFileName; //the common config file name
     String peerInfoFileName; //the peer info file name
+	int serverListenPort;
     int numPreferredPeers; //number of preferred peers this peer should have
     int unchokingInterval; // in seconds
     int optimisticUnchokingInterval;
@@ -70,6 +71,7 @@ public class Peer{
 	byte [] file; // actual file loaded in on init if peer has the file.
 	Logger logger;
     Thread serverThread;
+	ServerSocket listener;
 	Timer timer;
 	UnchokeTimer optimisticTimer;
 	UnchokeTimer regularTimer;
@@ -273,7 +275,7 @@ public class Peer{
 			// read file connect to those peers probably need to try multiple times as other peers may not be up yet
 			int currentLineNumber = 0; //keep track of what line number we're on.as it determines what we should do when we hit our own entry
 			boolean isFirstPeer = false; //are we the first peer listed in the file?
-			int serverListenPort = 0; //what port we should be listening on
+			serverListenPort = 0; //what port we should be listening on
 
 			Matcher peerInfoMatcher = peerInfoRegex.matcher(""); //init peer info matcher with blank string so we can reset it for each line
 			while (peerInfoFile.hasNextLine()) { // start connecting to peers change while peer list not empty from manifest file
@@ -314,29 +316,33 @@ public class Peer{
 						}
 					} else {
 						// spin up several threads for each peer that connects
+						PeerTCPConnection peerConnection = null;
 						try {
 							if (!isFirstPeer) //only try to connect when we're not the first peer
 							{
 								Socket peerSocket = new Socket(InetAddress.getByName(peerHostName), peerListenPort); // connect to a peer
-								PeerTCPConnection peerConnection = new PeerTCPConnection(inbox, peerSocket); // new connection
+								peerConnection = new PeerTCPConnection(inbox, peerSocket); // new connection
 								peerConnection.send(new Message(myID));// send handshake always first step
 								Message peerHandshake = peerConnection.getHandShake(); // receive response handshake always second step
 
 								peerConnection.setPeerId(peerHandshake.peerID); // set peerID for tracking of message origin in message queue
 								// important later when messages are mixed in queue to track their origin
-
-								peerConnection.start(); // start that peers reading thread
-								//peerConnection.send(makeMyBitFieldMessage()); // sends out bit field of pieces I have upon connection
-								peerTCPConnections.put(peerHandshake.peerID, peerConnection);
-								System.out.println("Added new peer Connect phase");
+								if (peerTCPConnections.get(peerHandshake.peerID) == null) { // if not in map put in
+									peerConnection.start(); // start that peers reading thread
+									//peerConnection.send(makeMyBitFieldMessage()); // sends out bit field of pieces I have upon connection
+									peerTCPConnections.put(peerHandshake.peerID, peerConnection);
+									System.out.println("Added new peer Connect phase");
+								}
+								else{
+									peerConnection.close();
+									System.out.println("Already in map???");
+								}
 							}
 							peerFileMap.put(currentPeerID, peerHasFile); //still build the map of which peers have what files.
-						} catch (ConnectException e) {
-							System.err.println("Connection refused. Peer not found");
-						} catch (UnknownHostException unknownHost) {
-							System.err.println("You are trying to connect to an unknown host!");
-						} catch (IOException ioException) {
-							System.err.println("iOException in server connection loop");
+						} catch (Exception e) {
+							System.err.println("Connection refused." + e);
+							if(peerConnection != null)
+								peerConnection.close();
 						}
 					}
 				}
@@ -346,40 +352,6 @@ public class Peer{
 				peerConnection.send(makeMyBitFieldMessage());
 			});
 // use this lambda style if you need to spin up a random thread at any point just dont capture it
-			final int serverPort = serverListenPort;
-			serverThread = new Thread(() -> { // listen for other peers wishing to connect with me on seperate thread
-				try { // fix this and connection phase to avoid duplicate connections
-					ServerSocket listener = new ServerSocket(serverPort); // passive listener on own thread
-					while (!Thread.currentThread().isInterrupted()) { // need to add map duplicate insert checks as some peers may try to connect after we have already connected
-						Socket peerSocket = listener.accept(); // this blocks waiting for new connections so must be on own thread
-						PeerTCPConnection peerConnection = new PeerTCPConnection(inbox, peerSocket); // new connection
-						peerConnection.send(new Message(myID));// send handshake always first step
-						Message peerHandshake = peerConnection.getHandShake(); // receive response handshake always second step
-
-						peerConnection.setPeerId(peerHandshake.peerID); // set peerID for tracking of message origin in message queue
-						// important later when messages are mixed in queue to track their origin
-						System.out.println("Before START");
-						peerConnection.start(); // start that peers reading thread
-						System.out.println("After START");
-						//THIS LOGIC MUST BE TESTED HOW DOES OTHER PEER KNOW IT IS DUPLICATE CONNECTION????
-						if (peerTCPConnections.get(peerHandshake.peerID) == null) { // if not in map put in
-							System.out.println("Before make bitfeild");
-							peerConnection.send(makeMyBitFieldMessage()); // sends out bit field of pieces I have upon connection
-							System.out.println("After make bitfeild");
-							peerTCPConnections.put(peerHandshake.peerID, peerConnection);
-							logger.logTCPConnection(peerHandshake.peerID); // new connection log it
-							System.out.println("Added new peer through server thread");
-						} else { // if in map don't need two connections to peer so close it
-							peerConnection.close();
-							System.out.println("Already in map???");
-						}
-					}
-				} catch (Exception e) {
-					System.out.println("Error running server sockets" + e);
-				}
-			});
-			serverThread.start();
-
 			setAndRunTimer(true); // start timers will set up preferred peer array and optimistic peer once they run
 			setAndRunTimer(false); // this gives time for peers to connect before initializing unchoked peers
 		}
@@ -628,8 +600,43 @@ public class Peer{
 			}
 		}
 	}
-    public void run(){ // file retrieval and peer file distribution done here
+	public void run(){ // server thread will run this
+		// listen for other peers wishing to connect with me on seperate thread
+			try { // fix this and connection phase to avoid duplicate connections
+				final int serverPort = serverListenPort;
+				listener = new ServerSocket(serverPort); // passive listener on own thread
+				while (!Thread.currentThread().isInterrupted()) { // need to add map duplicate insert checks as some peers may try to connect after we have already connected
+					Socket peerSocket = listener.accept(); // this blocks waiting for new connections so must be on own thread
+					PeerTCPConnection peerConnection = new PeerTCPConnection(inbox, peerSocket); // new connection
+					peerConnection.send(new Message(myID));// send handshake always first step
+					Message peerHandshake = peerConnection.getHandShake(); // receive response handshake always second step
+
+					peerConnection.setPeerId(peerHandshake.peerID); // set peerID for tracking of message origin in message queue
+					// important later when messages are mixed in queue to track their origin
+					//THIS LOGIC MUST BE TESTED HOW DOES OTHER PEER KNOW IT IS DUPLICATE CONNECTION????
+					if (peerTCPConnections.get(peerHandshake.peerID) == null) { // if not in map put in
+						System.out.println("Before START");
+						peerConnection.start(); // start that peers reading thread
+						System.out.println("After START");
+						System.out.println("Before make bitfeild");
+						peerConnection.send(makeMyBitFieldMessage()); // sends out bit field of pieces I have upon connection
+						System.out.println("After make bitfeild");
+						peerTCPConnections.put(peerHandshake.peerID, peerConnection);
+						logger.logTCPConnection(peerHandshake.peerID); // new connection log it
+						System.out.println("Added new peer through server thread");
+					} else { // if in map don't need two connections to peer so close it
+						peerConnection.close();
+						System.out.println("Already in map???");
+					}
+				}
+			} catch (Exception e) {
+				System.out.println("Error running server sockets" + e);
+			}
+	}
+    public void get(){ // file retrieval and peer file distribution done here
         // start main process of asking peers for bytes of file
+		serverThread = new Thread(this);
+		serverThread.start();
         while(true){ // add && file is incomplete
             //process messages and respond appropriately
 			if(!inbox.isEmpty()) {
@@ -641,22 +648,32 @@ public class Peer{
 			if(haveFile && !startedWithFile){
 				logger.logDownloadCompletion();
 				try {
+					desiredFileName = myID +"\\"+ desiredFileName;
+					desiredFileName = System.getProperty("user.dir") + "\\"+ desiredFileName;
 					Path path = Paths.get(desiredFileName); // broken need to fix
 					Files.write(path,file);
-//					FileOutputStream fos = new FileOutputStream(System.getProperty("user.dir") + "\\"+ desiredFileName);
-//					fos.write(file, 0, file.length);
+					System.out.println("Printing file to: " + desiredFileName);
 				}
 				catch (Exception e){
-					System.err.println("Error writing file out.");
+					System.err.println("Error writing file out." + e);
 				}
 				startedWithFile = true;
 			}
 			if(haveFile && allPeersHaveFile){ // fix allPeersHaveFile is never changed to true when all peers have the file.
+				System.out.println("KILL EVERYTHING!!!");
 				//kill everything
 				regularTimer.cancel();
 				optimisticTimer.cancel();
+				timer.cancel();
+				timer.purge();
 				terminate = true;
 				serverThread.interrupt();
+				try {
+					listener.close();
+					serverThread.join();
+				}catch(Exception e){
+					System.out.println("ServerThread error" + e);
+				}
 				peerTCPConnections.forEach((peerID, peerConnection) -> {
 					peerConnection.close();
 				});
@@ -672,7 +689,8 @@ public class Peer{
     	Peer me = new Peer(peerID, logFileName, commonConfigFile, peerInfoConfigFile);
         me.Connect();
 		System.out.println("Connection Complete");
-        me.run(); //work in progress
+        me.get(); //work in progress
 		System.out.println("Download Complete");
+		System.out.println("Num of threads running still:" + Thread.activeCount());
     }
 }
