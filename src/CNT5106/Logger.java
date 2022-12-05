@@ -2,8 +2,6 @@ package CNT5106;
 import java.io.*;
 import java.time.format.DateTimeFormatter;
 import java.time.LocalDateTime;
-
-
 public class Logger {
 	
 	String filePath;
@@ -242,4 +240,3 @@ public class Logger {
 		}
 	}
 }
-

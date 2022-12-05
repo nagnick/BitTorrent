@@ -5,7 +5,6 @@ import java.io.DataOutputStream;
 import java.net.Socket;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.util.Comparator;
 import java.util.concurrent.LinkedBlockingQueue;
 
 public class PeerTCPConnection implements Runnable { // spinning thread waiting for peer messages
@@ -34,21 +33,18 @@ public class PeerTCPConnection implements Runnable { // spinning thread waiting 
             in = new DataInputStream(connection.getInputStream());
         }
         catch(Exception e){
-            System.out.println("Error creating TCP connection ");
+            System.err.println("Error creating TCP connection ");
         }
     }
     public Message getHandShake(){ // use before starting thread and only once will fail if anyother message
         byte[] messageBytes = new byte[32]; // puts a zero int in message if bellow fails
-        System.out.println(" got handShake");
         try {
             messageBytes = in.readNBytes(32);
         }
         catch (Exception e) {
-            System.out.println("Error reading TCPIn handshake" + e.toString());
+            System.err.println("Error reading TCPIn handshake" + e.toString());
         }
-        Message toReturn = new Message(messageBytes, true,peerID);
-        System.out.println("returned handshake" + toReturn.toString());
-        return toReturn; // peerID not used for handshake peerId in message is read instead
+        return new Message(messageBytes, true,peerID); // peerID not used for handshake peerId in message is read instead
     }
     public void start() {
         thread = new Thread(this);
@@ -74,22 +70,20 @@ public class PeerTCPConnection implements Runnable { // spinning thread waiting 
         }
         catch (InterruptedException e){
             Thread.currentThread().interrupt();
-            System.out.println("Thread was interrupted" + e);
+            System.err.println("TCP Thread was killed");
         }
         catch (Exception e) {
-            System.out.println("Error running TCPIn thread" + e);
+            System.err.println("TCP Thread was killed");
         }
     }
     public boolean send(Message message){
-        System.out.println("Sending message: " + message.toString() + " length in bytes:" + message.toBytes().length);
         try {
             out.write(message.toBytes());
             out.flush();
-            System.out.println("Message writen out");
             return true;
         }
         catch (Exception e){
-            System.out.println("Error writing bytes in send method"+ e);
+            System.err.println("Error writing bytes in send method"+ e);
         }
         return false;
     }
@@ -104,7 +98,7 @@ public class PeerTCPConnection implements Runnable { // spinning thread waiting 
             terminate = true;
         }
         catch (Exception e){
-            System.out.println("Error closing TCP connection" + e);
+            System.err.println("Closing TCP connection" + e);
         }
     }
     public void setPeerId(int ID){

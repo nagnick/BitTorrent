@@ -1,11 +1,9 @@
 package CNT5106;
 
 import java.io.*;
-import java.net.ConnectException;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.file.Files;
@@ -138,19 +136,6 @@ public class Peer implements Runnable{
 			numPieces = (int) (Math.ceil((double) (desiredFileSize) / (double) (pieceSize)));
 			this.havePieces = new boolean[numPieces]; //init the pieces array to track what pieces we have
 			this.requestedPieces = new boolean[numPieces];
-			// moved to connect have file not set here
-//			Arrays.fill(havePieces, haveFile); //set the initial values of the pieces array based on whether we've got the entire file.
-//			Arrays.fill(requestedPieces, haveFile); // don't request pieces I have so add to requested list
-//			if (haveFile) { // if I have the file read it into memory
-//				try {
-//					Path path = Paths.get(desiredFileName);
-//					file = Files.readAllBytes(path); // bring file into memory
-//				} catch (Exception e) {
-//					System.err.println("Error reading file to distribute");
-//				}
-//			} else {
-//				file = new byte[desiredFileSize]; // init space to save the file.
-//			}
 		}
 		catch(Exception e){
 			System.err.println(e.getMessage());
@@ -276,7 +261,6 @@ public class Peer implements Runnable{
 			int currentLineNumber = 0; //keep track of what line number we're on.as it determines what we should do when we hit our own entry
 			boolean isFirstPeer = false; //are we the first peer listed in the file?
 			serverListenPort = 0; //what port we should be listening on
-
 			Matcher peerInfoMatcher = peerInfoRegex.matcher(""); //init peer info matcher with blank string so we can reset it for each line
 			while (peerInfoFile.hasNextLine()) { // start connecting to peers change while peer list not empty from manifest file
 				String peerInfoLine = peerInfoFile.nextLine(); //pull the current line into a string
@@ -287,20 +271,16 @@ public class Peer implements Runnable{
 					String peerHostName = peerInfoMatcher.group(2);
 					int peerListenPort = Integer.parseInt(peerInfoMatcher.group(3));
 					boolean peerHasFile = (Objects.equals(peerInfoMatcher.group(4), "1"));
-					System.out.println(peerHostName);
 					if (currentPeerID == myID) {
 						serverListenPort = peerListenPort;
-						System.out.println("Listening on port:" + peerListenPort);
 						haveFile = peerHasFile;
 						startedWithFile = haveFile;
 						Arrays.fill(havePieces, haveFile); //set the initial values of the pieces array based on whether we've got the entire file.
 						Arrays.fill(requestedPieces, haveFile); // don't request pieces I have so add to requested list
 						if (haveFile) { // if I have the file read it into memory
 							try {
-								System.out.println(desiredFileName);
 								desiredFileName = myID +"\\"+ desiredFileName;
 								desiredFileName = System.getProperty("user.dir") + "\\"+ desiredFileName;
-								System.out.println(desiredFileName);
 								Path path = Paths.get(desiredFileName);
 								file = Files.readAllBytes(path); // bring file into memory
 							} catch (Exception e) {
@@ -309,7 +289,6 @@ public class Peer implements Runnable{
 						} else {
 							file = new byte[desiredFileSize]; // init space to save the file.
 						}
-						System.out.println("Peer has file :" + haveFile);
 						if (currentLineNumber == 0) //we're the first peer
 						{
 							isFirstPeer = true;
@@ -324,18 +303,15 @@ public class Peer implements Runnable{
 								peerConnection = new PeerTCPConnection(inbox, peerSocket); // new connection
 								peerConnection.send(new Message(myID));// send handshake always first step
 								Message peerHandshake = peerConnection.getHandShake(); // receive response handshake always second step
-
 								peerConnection.setPeerId(peerHandshake.peerID); // set peerID for tracking of message origin in message queue
 								// important later when messages are mixed in queue to track their origin
 								if (peerTCPConnections.get(peerHandshake.peerID) == null) { // if not in map put in
 									peerConnection.start(); // start that peers reading thread
 									//peerConnection.send(makeMyBitFieldMessage()); // sends out bit field of pieces I have upon connection
 									peerTCPConnections.put(peerHandshake.peerID, peerConnection);
-									System.out.println("Added new peer Connect phase");
 								}
 								else{
 									peerConnection.close();
-									System.out.println("Already in map???");
 								}
 							}
 							peerFileMap.put(currentPeerID, peerHasFile); //still build the map of which peers have what files.
@@ -421,7 +397,6 @@ public class Peer implements Runnable{
 					ByteBuffer mybuff = ByteBuffer.allocate(4).order(ByteOrder.BIG_ENDIAN);
 					mybuff.putInt(i);
 					peerTCPConnections.get(message.peerID).send(new Message(4, MessageTypes.request, mybuff.array()));
-					//requestedPieces[i] = true; // just requested it so update
 					break;
 				}
 			}
@@ -500,24 +475,6 @@ public class Peer implements Runnable{
 		Boolean[] currentPeerPieceMapping = new Boolean[numPieces];
 		PeerTCPConnection currentPeer = peerTCPConnections.get(message.peerID); //pull the current peer from map
 		currentPeer.haveFile = true; // set up to check if peer has file
-		// byte buffer you can use ben. call buff.put(mybyte); to add bytes to it or buff.putChar(myChar); for chars
-//		ByteBuffer buff = ByteBuffer.allocate(numPieces).order(ByteOrder.BIG_ENDIAN);
-//		buff.put(message.payload);
-//		int toTest = buff.get();
-//		currentPeer.haveFile = true; // set up to check if peer has file
-//		for(int i = 0; i < numPieces; i++){
-//			if(i != 0 && i%8 == 0) {
-//				toTest = buff.get();
-//			}
-//
-//			if((toTest& 1) == 1){
-//				currentPeerPieceMapping[i] = Boolean.TRUE;
-//			}else{
-//				currentPeerPieceMapping[i] = Boolean.FALSE;
-//				currentPeer.haveFile = false; // missing a piece does not have file
-//			}
-//			toTest = toTest >> 1; // move to check next bit
-//		}
 		int segmentIndex = 0; //segment index value used to map the bits in each char to their piece index val
 		for(byte msgByte : message.payload) //iterate over each byte of the payload
 		{
@@ -569,13 +526,7 @@ public class Peer implements Runnable{
 			mybuff.putInt(reqPiece);
 			//piece of file is from reqpiece*pieceSize to (reqpiece * pieceSize) + pieceSize. not inclusive
 			mybuff.put(file,startingIndex,filePieceSize);
-//			for(int i = startingIndex; i < (startingIndex + filePieceSize) && i < desiredFileSize; i++ ){ // add bytes received to my file
-//				mybuff.put(file,startingIndex,filePieceSize);
-//			}
-				requestee.send(new Message(mybuff.array().length, MessageTypes.piece, mybuff.array()));
-		}
-		else{ // should probably save this info as won't ask again....
-			System.out.println("Asked for piece but is choked so won't send");
+			requestee.send(new Message(mybuff.array().length, MessageTypes.piece, mybuff.array()));
 		}
 	}
 	private void processPieceMessage(Message message){ // done
@@ -588,12 +539,8 @@ public class Peer implements Runnable{
 		//Log download completetion of this piece
 		logger.logDownloadingPiece(message.peerID, recvPiece,message.length-4);
 		int startingIndex = recvPiece*pieceSize;
-		System.out.println("BufferSize: " + buff.limit() + " Starting index: " + startingIndex+" Piece Requeste: "+ recvPiece + " Message Length: " + message.length + " endIdex in loop: " + (startingIndex + (message.length-4) + " Message payload length: "+ message.payload.length));
 		buff.position(4);
 		buff.get(file,startingIndex, message.length-4);
-//		for(int i = startingIndex; i < (startingIndex + (message.length-4)) || i < desiredFileSize; i++ ){ // add bytes received to my file
-//			file[i] = buff.get(file[i],);
-//		}
 		//Check havePieces to see if completed file
 		for(int i = 0; i < this.havePieces.length;i++ )
 		{
@@ -639,36 +586,27 @@ public class Peer implements Runnable{
 
 					peerConnection.setPeerId(peerHandshake.peerID); // set peerID for tracking of message origin in message queue
 					// important later when messages are mixed in queue to track their origin
-					//THIS LOGIC MUST BE TESTED HOW DOES OTHER PEER KNOW IT IS DUPLICATE CONNECTION????
 					if (peerTCPConnections.get(peerHandshake.peerID) == null) { // if not in map put in
-						System.out.println("Before START");
 						peerConnection.start(); // start that peers reading thread
-						System.out.println("After START");
-						System.out.println("Before make bitfeild");
 						peerConnection.send(makeMyBitFieldMessage()); // sends out bit field of pieces I have upon connection
-						System.out.println("After make bitfeild");
 						peerTCPConnections.put(peerHandshake.peerID, peerConnection);
 						logger.logTCPConnection(peerHandshake.peerID); // new connection log it
-						System.out.println("Added new peer through server thread");
 					} else { // if in map don't need two connections to peer so close it
 						peerConnection.close();
-						System.out.println("Already in map???");
 					}
 				}
 			} catch (Exception e) {
-				System.out.println("Error running server sockets" + e);
+				System.err.println("Error running server sockets" + e);
 			}
 	}
     public void get(){ // file retrieval and peer file distribution done here
         // start main process of asking peers for bytes of file
 		serverThread = new Thread(this);
-		serverThread.start();
+		serverThread.start(); // runs this run method which is the socket server
         while(true){ // add && file is incomplete
             //process messages and respond appropriately
 			if(!inbox.isEmpty()) {
-				System.out.println("Processing Message");
 				processMessage(inbox.peek());
-				System.out.println(inbox.peek().type.toString());
 				inbox.remove();
 			}
 			if(haveFile && !startedWithFile){
@@ -678,7 +616,6 @@ public class Peer implements Runnable{
 					desiredFileName = System.getProperty("user.dir") + "\\"+ desiredFileName;
 					Path path = Paths.get(desiredFileName); // broken need to fix
 					Files.write(path,file);
-					System.out.println("Printing file to: " + desiredFileName);
 				}
 				catch (Exception e){
 					System.err.println("Error writing file out." + e);
@@ -686,7 +623,6 @@ public class Peer implements Runnable{
 				startedWithFile = true;
 			}
 			if(haveFile && allPeersHaveFile){ // fix allPeersHaveFile is never changed to true when all peers have the file.
-				System.out.println("KILL EVERYTHING!!!");
 				//kill everything
 				regularTimer.cancel();
 				optimisticTimer.cancel();
@@ -698,12 +634,12 @@ public class Peer implements Runnable{
 					listener.close();
 					serverThread.join();
 				}catch(Exception e){
-					System.out.println("ServerThread error" + e);
+					System.err.println("ServerThread error" + e);
 				}
 				peerTCPConnections.forEach((peerID, peerConnection) -> {
 					peerConnection.close();
 				});
-				break; // exit job complete? ro do i keep running to help other peers
+				break; // exit job complete
 			}
         }
     }
@@ -714,9 +650,6 @@ public class Peer implements Runnable{
         final String peerInfoConfigFile = "PeerInfo.cfg";
     	Peer me = new Peer(peerID, logFileName, commonConfigFile, peerInfoConfigFile);
         me.Connect();
-		System.out.println("Connection Complete");
-        me.get(); //work in progress
-		System.out.println("Download Complete");
-		System.out.println("Num of threads running still:" + Thread.activeCount());
+        me.get();
     }
 }
