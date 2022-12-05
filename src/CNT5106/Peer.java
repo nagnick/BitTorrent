@@ -362,15 +362,41 @@ public class Peer implements Runnable{
 	private void processMessage(Message message){ // done
 		// process each message depending on their type
 		switch (message.type.ordinal()){
-			case(0)-> processChokeMessage(message);
-			case(1)-> processUnchokeMessage(message);
-			case(2)-> processInterestedMessage(message);
-			case(3)-> processNotInterestedMessage(message);
-			case(4)-> processHaveMessage(message);
-			case(5)-> processBitfieldMessage(message);
-			case(6)-> processRequestMessage(message);
-			case(7)-> processPieceMessage(message);
-			default -> throw new RuntimeException("Unexpected message type in processMessage\n");
+			case(0): {
+				processChokeMessage(message);
+				break;
+			}
+			case(1): {
+				processUnchokeMessage(message);
+				break;
+			}
+			case(2): {
+				processInterestedMessage(message);
+				break;
+			}
+			case(3): {
+				processNotInterestedMessage(message);
+				break;
+			}
+			case(4):{
+				processHaveMessage(message);
+				break;
+			}
+			case(5): {
+				processBitfieldMessage(message);
+				break;
+			}
+			case(6):{
+				processRequestMessage(message);
+				break;
+			}
+			case(7): {
+				processPieceMessage(message);
+				break;
+			}
+			default:{
+				throw new RuntimeException("Unexpected message type in processMessage\n");
+			}
 		}
 	}
 	private void processChokeMessage(Message message){ //Done-Nick

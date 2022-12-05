@@ -39,17 +39,43 @@ public class Message {
         }
         else{
             this.length = mybuff.getInt(0);
-            this.type = switch ((int)mybuff.get(4)){
-                case(0)-> MessageTypes.choke;
-                case(1)-> MessageTypes.unchoke;
-                case(2)-> MessageTypes.interested;
-                case(3)-> MessageTypes.notInterested;
-                case(4)-> MessageTypes.have;
-                case(5)-> MessageTypes.bitfield;
-                case(6)-> MessageTypes.request;
-                case(7)-> MessageTypes.piece;
-                default -> throw new RuntimeException("Unexpected message type in char[] constructor of Message\n");
-            };
+            switch ((int)mybuff.get(4)){
+                case(0):{
+                    this.type = MessageTypes.choke;
+                    break;
+                }
+                case(1): {
+                    this.type = MessageTypes.unchoke;
+                    break;
+                }
+                case(2): {
+                    this.type = MessageTypes.interested;
+                    break;
+                }
+                case(3): {
+                    this.type = MessageTypes.notInterested;
+                    break;
+                }
+                case(4): {
+                    this.type = MessageTypes.have;
+                    break;
+                }
+                case(5):{
+                    this.type = MessageTypes.bitfield;
+                    break;
+                }
+                case(6):{
+                    this.type = MessageTypes.request;
+                    break;
+                }
+                case(7):{
+                    this.type = MessageTypes.piece;
+                    break;
+                }
+                default:{
+                    throw new RuntimeException("Unexpected message type in char[] constructor of Message\n");
+                }
+            }
             this.payload = Arrays.copyOfRange(input,5,input.length);
             this.peerID = peerID;
         }
