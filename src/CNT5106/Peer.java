@@ -458,7 +458,7 @@ public class Peer implements Runnable{
 			peerAndMissingPieces[i] = !havePieces[i] & newPeerPieceMap[i]; //invert what I have to mark if missing, AND it with what peer has to check if it has it
 		}
 
-		if(Arrays.stream(peerAndMissingPieces).toList().contains(Boolean.TRUE)) //the peer has a piece that I am missing
+		if(Arrays.stream(peerAndMissingPieces).anyMatch(value -> value == Boolean.TRUE)) //the peer has a piece that I am missing
 		{
 			Message interestedNotification = new Message(0, MessageTypes.interested, null);
 			peerTCPConnections.get(message.peerID).send(interestedNotification);
