@@ -2,6 +2,8 @@ package CNT5106;
 import java.io.*;
 import java.time.format.DateTimeFormatter;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+
 public class Logger {
 	
 	String filePath;
@@ -21,7 +23,7 @@ public class Logger {
 	}
 	
 	
-	public void logMessage(String type,int peerID2, int [] prefNeighbors,int optUnchokedNeighbor,int pieceIndex, int numPieces)
+	public void logMessage(String type,int peerID2, ArrayList<Integer> prefNeighbors,int optUnchokedNeighbor,int pieceIndex, int numPieces)
 	{
 		
 		if(type.equals("TCPConnection"))
@@ -85,17 +87,17 @@ public class Logger {
 			System.out.println(exception.getMessage());
 		}
 	}
-	public void logChangePrefNeighbors(int [] prefNeighbors)
+	public void logChangePrefNeighbors(ArrayList<Integer> prefNeighbors)
 	{
 		String output = "";
 		curTime = LocalDateTime.now();
 		output = formatter.format(curTime)+": Peer "+myPeerID + " has the preferred neighbors ";
-		for(int i = 0; i<prefNeighbors.length-1;i++)
+		for(int i = 0; i<prefNeighbors.size()-1;i++)
 		{
-			output = output +prefNeighbors[i] +", ";
+			output = output +prefNeighbors.get(i) +", ";
 		}
 		
-		output = output + prefNeighbors[prefNeighbors.length-1]+"\n";
+		output = output + prefNeighbors.get(prefNeighbors.size()-1)+"\n";
 		
 		try
 		{

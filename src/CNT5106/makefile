@@ -1,0 +1,2 @@
+make:
+	javac -cp .;* *.java

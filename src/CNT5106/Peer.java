@@ -164,6 +164,7 @@ public class Peer implements Runnable{
 					i = rand.nextInt(keys.length); // random index [0 - keys.length-1]
 				}
 				optimisticPeer = (Integer) keys[i]; // set new optimistic peer
+				logger.logChangeOptUnchokedNeighbor(optimisticPeer);
 				peerTCPConnections.get(optimisticPeer).send(unchoke); // unchoke new peer
 				peerTCPConnections.get(optimisticPeer).choked = false; // used for tracking
 			} else {
@@ -217,6 +218,7 @@ public class Peer implements Runnable{
 							current.choked = false;
 						}
 					}
+					logger.logChangePrefNeighbors(preferredPeers);
 				}
 			}
 		}
