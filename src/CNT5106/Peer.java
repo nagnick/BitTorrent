@@ -475,24 +475,31 @@ public class Peer implements Runnable{
 		}
 		peerTCPConnections.get(message.peerID).haveFile = peerHaveFile;
 		peerPieceMap.put(message.peerID, newPeerPieceMap);
-		Boolean[] peerAndMissingPieces = new Boolean[numPieces]; //the pieces I'm missing ANDed with the pieces the peer has
-		boolean interested = false;
-		for (int i = 0; i < numPieces; i++) {
-			peerAndMissingPieces[i] = !havePieces[i] & newPeerPieceMap[i]; //invert what I have to mark if missing, AND it with what peer has to check if it has it
-			if(peerAndMissingPieces[i])
-				interested = true;
-		}
+		if(haveFile) {
+			Boolean[] peerAndMissingPieces = new Boolean[numPieces]; //the pieces I'm missing ANDed with the pieces the peer has
+			boolean interested = false;
+			for (int i = 0; i < numPieces; i++) {
+				peerAndMissingPieces[i] = !havePieces[i] & newPeerPieceMap[i]; //invert what I have to mark if missing, AND it with what peer has to check if it has it
+				if (peerAndMissingPieces[i])
+					interested = true;
+			}
 
-		if (!peerTCPConnections.get(message.peerID).iamInterested && interested) //the peer has a piece that I am missing
-		{
-			Message interestedNotification = new Message(0, MessageTypes.interested, null);
-			peerTCPConnections.get(message.peerID).send(interestedNotification);
-			peerTCPConnections.get(message.peerID).iamInterested = true;
-		} else if(peerTCPConnections.get(message.peerID).iamInterested && !interested) //the peer has nothing i need
-		{
-			Message notInterestedNotification = new Message(0, MessageTypes.notInterested, null);
-			peerTCPConnections.get(message.peerID).send(notInterestedNotification);
-			peerTCPConnections.get(message.peerID).iamInterested = false;
+			if (!peerTCPConnections.get(message.peerID).iamInterested && interested) //the peer has a piece that I am missing
+			{
+				Message interestedNotification = new Message(0, MessageTypes.interested, null);
+				peerTCPConnections.get(message.peerID).send(interestedNotification);
+				peerTCPConnections.get(message.peerID).iamInterested = true;
+			} else if (peerTCPConnections.get(message.peerID).iamInterested && !interested) //the peer has nothing i need
+			{
+				Message notInterestedNotification = new Message(0, MessageTypes.notInterested, null);
+				peerTCPConnections.get(message.peerID).send(notInterestedNotification);
+				peerTCPConnections.get(message.peerID).iamInterested = false;
+			}
+		}else{ // will never be interested
+			if(peerTCPConnections.get(message.peerID).iamInterested) { // update peer I am never going to be interested again
+				peerTCPConnections.get(message.peerID).send(new Message(0, MessageTypes.notInterested, null));
+				peerTCPConnections.get(message.peerID).iamInterested = false;
+			}
 		}
 		allPeersHaveFile = true;
 		peerTCPConnections.forEach((peerID, peerConnection) -> {
@@ -543,22 +550,30 @@ public class Peer implements Runnable{
 		}
 		peerTCPConnections.get(message.peerID).haveFile = peerHaveFile;
 		peerPieceMap.put(message.peerID, newPeerPieceMap);
-		Boolean[] peerAndMissingPieces = new Boolean[numPieces]; //the pieces I'm missing ANDed with the pieces the peer has
-		boolean interested = false;
-		for(int i=0; i<numPieces; i++){
-			peerAndMissingPieces[i] = !havePieces[i] & newPeerPieceMap[i]; //invert what I have to mark if missing, AND it with what peer has to check if it has it
-			if(peerAndMissingPieces[i]){
-				interested = true;
+		if(haveFile) {
+			Boolean[] peerAndMissingPieces = new Boolean[numPieces]; //the pieces I'm missing ANDed with the pieces the peer has
+			boolean interested = false;
+			for (int i = 0; i < numPieces; i++) {
+				peerAndMissingPieces[i] = !havePieces[i] & newPeerPieceMap[i]; //invert what I have to mark if missing, AND it with what peer has to check if it has it
+				if (peerAndMissingPieces[i]) {
+					interested = true;
+				}
 			}
-		}
-		if(interested) //the peer has a piece that I am missing
-		{
-			Message interestedNotification = new Message(0, MessageTypes.interested, null);
-			peerTCPConnections.get(message.peerID).send(interestedNotification);
-		}
-		else{ //the peer has nothing i need
-			Message notInterestedNotification = new Message(0, MessageTypes.notInterested, null);
-			peerTCPConnections.get(message.peerID).send(notInterestedNotification);
+			if (interested) //the peer has a piece that I am missing
+			{
+				Message interestedNotification = new Message(0, MessageTypes.interested, null);
+				peerTCPConnections.get(message.peerID).send(interestedNotification);
+				peerTCPConnections.get(message.peerID).iamInterested = true;
+			} else { //the peer has nothing i need
+				Message notInterestedNotification = new Message(0, MessageTypes.notInterested, null);
+				peerTCPConnections.get(message.peerID).send(notInterestedNotification);
+				peerTCPConnections.get(message.peerID).iamInterested = false;
+			}
+		}else{
+			if(peerTCPConnections.get(message.peerID).iamInterested) { // update peer I am never going to be interested again
+				peerTCPConnections.get(message.peerID).send(new Message(0, MessageTypes.notInterested, null));
+				peerTCPConnections.get(message.peerID).iamInterested = false;
+			}
 		}
 		allPeersHaveFile = true;
 		peerTCPConnections.forEach((peerID, peerConnection) -> {
