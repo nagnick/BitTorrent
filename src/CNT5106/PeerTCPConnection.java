@@ -59,9 +59,11 @@ public class PeerTCPConnection implements Runnable { // spinning thread waiting 
                 int messageLength = lengthBuff.put(in.readNBytes(4)).getInt(0);
                 ByteBuffer message = ByteBuffer.allocate(5+messageLength).order(ByteOrder.BIG_ENDIAN);
                 message.putInt(0,messageLength);
-                message.put(4,in.readNBytes(1));
-                if(messageLength != 0)
-                    message.put(5,in.readNBytes(messageLength));
+                message.put(4,in.readNBytes(1)[0]);
+                if(messageLength != 0) {
+                    message.position(5);
+                    message.put( in.readNBytes(messageLength),0,messageLength);
+                }
                 Message toPutInInbox = new Message(message.array(),false,peerID);
                 inbox.put(toPutInInbox);
                 if(toPutInInbox.type == Message.MessageTypes.piece)
