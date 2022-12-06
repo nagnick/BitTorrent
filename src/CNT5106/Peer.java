@@ -60,6 +60,7 @@ public class Peer implements Runnable{
     int desiredFileSize; //the size of the file we want
     int pieceSize; //the size of the pieces of the file we want
     int numPieces; //the total number of pieces of the file, used as part of bitfield logic.
+	int numPiecesIHave = 0; // used to track download progress
     boolean haveFile; //indicate if I have entire file or not
 	boolean allPeersHaveFile = false; // used to decide when to exit. if all peers have it and so do I then exit.
 	boolean terminate = false; // controls all the threads.
@@ -285,6 +286,7 @@ public class Peer implements Runnable{
 						Arrays.fill(havePieces, haveFile); //set the initial values of the pieces array based on whether we've got the entire file.
 						Arrays.fill(requestedPieces, haveFile); // don't request pieces I have so add to requested list
 						if (haveFile) { // if I have the file read it into memory
+							numPiecesIHave = numPieces;
 							try {
 								desiredFileName = myID +"/"+ desiredFileName;
 								desiredFileName = System.getProperty("user.dir") + "/"+ desiredFileName;
@@ -541,10 +543,13 @@ public class Peer implements Runnable{
 		//Retrieve 4 byte piece index value
 		int recvPiece = buff.getInt(0); // the piece i get is the piece i requested
 		//Update Current peers bitfield to have that piece
+		if(!havePieces[recvPiece]){ // if not a duplicate piece increment my download count
+			numPiecesIHave++;
+			logger.logDownloadingPiece(message.peerID, recvPiece,numPiecesIHave); // log new piece added
+		}
 		this.havePieces[recvPiece] = true;
 		requestedPieces[recvPiece] = true; // just got it so update to not request anymore
 		//Log download completetion of this piece
-		logger.logDownloadingPiece(message.peerID, recvPiece,message.length-4);
 		int startingIndex = recvPiece*pieceSize;
 		buff.position(4);
 		buff.get(file,startingIndex, message.length-4);
