@@ -19,6 +19,7 @@ public class PeerTCPConnection implements Runnable { // spinning thread waiting 
     int totalPreferredPeriods = 0;
     double downloadRate = 0;
     boolean interested = false;
+    boolean iamInterested = false;
     boolean choked = true; // my view of this peer whether I have choked it or not
     boolean iamChoked = true; // this peers view of me
     boolean haveFile = false; // used to decide when to terminate program

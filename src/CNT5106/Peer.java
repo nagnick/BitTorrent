@@ -434,65 +434,62 @@ public class Peer implements Runnable{
 	}
 	private void processInterestedMessage(Message message){
 		logger.logRecvIntMessage(message.peerID);
-		Boolean[] peerPieces = peerPieceMap.get(message.peerID); //retrieve the current mapping of what pieces we think peer has
-		Boolean[] newPeerPieceMap = new Boolean[numPieces];
-		for(int i=0; i<numPieces; i++) //figure out what pieces from me peer already has
-		{
-			newPeerPieceMap[i] = peerPieces[i] & havePieces[i];
-		}
-		for(int i=0; i<numPieces; i++) //figure out what pieces peer has that aren't from me
-		{
-			newPeerPieceMap[i] = newPeerPieceMap[i] | peerPieces[i];
-		}
-		peerPieceMap.put(message.peerID, newPeerPieceMap); //update the peer's piece mapping
+//		Boolean[] peerPieces = peerPieceMap.get(message.peerID); //retrieve the current mapping of what pieces we think peer has
+//		Boolean[] newPeerPieceMap = new Boolean[numPieces];
+//		for(int i=0; i<numPieces; i++) //figure out what pieces from me peer already has
+//		{
+//			newPeerPieceMap[i] = peerPieces[i] & havePieces[i];
+//		}
+//		for(int i=0; i<numPieces; i++) //figure out what pieces peer has that aren't from me
+//		{
+//			newPeerPieceMap[i] = newPeerPieceMap[i] | peerPieces[i];
+//		}
+//		peerPieceMap.put(message.peerID, newPeerPieceMap); //update the peer's piece mapping
 		peerTCPConnections.get(message.peerID).interested = true;
 	}
 	private void processNotInterestedMessage(Message message){
 		logger.logRecvNotIntMessage(message.peerID);
-		Boolean[] peerPieces = peerPieceMap.get(message.peerID); //retrieve the current mapping of what pieces we think peer has
-		Boolean[] newPeerPieceMap = new Boolean[numPieces];
-		for(int i=0; i<numPieces; i++) //peer has all of my pieces, so OR what I think it has with what I have.
-		{
-			newPeerPieceMap[i] = peerPieces[i] | havePieces[i];
-		}
-		peerPieceMap.put(message.peerID, newPeerPieceMap);  //update the peer's piece mapping
+//		Boolean[] peerPieces = peerPieceMap.get(message.peerID); //retrieve the current mapping of what pieces we think peer has
+//		Boolean[] newPeerPieceMap = new Boolean[numPieces];
+//		for(int i=0; i<numPieces; i++) //peer has all of my pieces, so OR what I think it has with what I have.
+//		{
+//			newPeerPieceMap[i] = peerPieces[i] | havePieces[i];
+//		}
+//		peerPieceMap.put(message.peerID, newPeerPieceMap);  //update the peer's piece mapping
 		peerTCPConnections.get(message.peerID).interested = false;
 	}
-	private void processHaveMessage(Message message){ //done
+	private void processHaveMessage(Message message) { //done
 		ByteBuffer buff = ByteBuffer.allocate(4).order(ByteOrder.BIG_ENDIAN);
 		int pieceIndex = buff.put(message.payload).getInt(0);
-		logger.logRecvHaveMessage(message.peerID,pieceIndex); // treat chars as bytes...
+		logger.logRecvHaveMessage(message.peerID, pieceIndex); // treat chars as bytes...
 		Boolean[] peerPieces = peerPieceMap.get(message.peerID);
 		Boolean[] newPeerPieceMap = Arrays.copyOf(peerPieces, numPieces); //create copy of the peer's piece map so we don't modify existing one
 		newPeerPieceMap[pieceIndex] = true; //set the piece the peer says it has to true
 		boolean peerHaveFile = true;
-		for(int k = 0;k < newPeerPieceMap.length;k++)//Check to see if peer has complete file
+		for (int k = 0; k < newPeerPieceMap.length; k++)//Check to see if peer has complete file
 		{
-			if(!newPeerPieceMap[k])
-			{
+			if (!newPeerPieceMap[k]) {
 				peerHaveFile = false; //variable to check if peer has whole file
 				break; // save some time
 			}
 		}
 		peerTCPConnections.get(message.peerID).haveFile = peerHaveFile;
 		peerPieceMap.put(message.peerID, newPeerPieceMap);
-
 		Boolean[] peerAndMissingPieces = new Boolean[numPieces]; //the pieces I'm missing ANDed with the pieces the peer has
-		for(int i=0; i<numPieces; i++)
-		{
+		for (int i = 0; i < numPieces; i++) {
 			peerAndMissingPieces[i] = !havePieces[i] & newPeerPieceMap[i]; //invert what I have to mark if missing, AND it with what peer has to check if it has it
 		}
 
-		if(Arrays.stream(peerAndMissingPieces).anyMatch(value -> value == Boolean.TRUE)) //the peer has a piece that I am missing
+		if (!peerTCPConnections.get(message.peerID).iamInterested && Arrays.stream(peerAndMissingPieces).anyMatch(value -> value == Boolean.TRUE)) //the peer has a piece that I am missing
 		{
 			Message interestedNotification = new Message(0, MessageTypes.interested, null);
 			peerTCPConnections.get(message.peerID).send(interestedNotification);
-		}
-
-		else //the peer has nothing i need
+			peerTCPConnections.get(message.peerID).iamInterested = true;
+		} else if(peerTCPConnections.get(message.peerID).iamInterested) //the peer has nothing i need
 		{
 			Message notInterestedNotification = new Message(0, MessageTypes.notInterested, null);
 			peerTCPConnections.get(message.peerID).send(notInterestedNotification);
+			peerTCPConnections.get(message.peerID).iamInterested = false;
 		}
 		allPeersHaveFile = true;
 		peerTCPConnections.forEach((peerID, peerConnection) -> {
