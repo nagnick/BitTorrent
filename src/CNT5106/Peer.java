@@ -517,7 +517,36 @@ public class Peer implements Runnable{
 			}
 			segmentIndex++; //increment the segment index to get ready for the next char
 		}
+		// check whether to be interested
 		peerPieceMap.put(message.peerID, currentPeerPieceMapping); //update the peerPieceMap value for the current peer
+		Boolean[] peerPieces = peerPieceMap.get(message.peerID);
+		Boolean[] newPeerPieceMap = Arrays.copyOf(peerPieces, numPieces); //create copy of the peer's piece map so we don't modify existing one
+		boolean peerHaveFile = true;
+		for(int k = 0;k < newPeerPieceMap.length;k++)//Check to see if peer has complete file
+		{
+			if(!newPeerPieceMap[k])
+			{
+				peerHaveFile = false; //variable to check if peer has whole file
+				break; // save some time
+			}
+		}
+		peerTCPConnections.get(message.peerID).haveFile = peerHaveFile;
+		peerPieceMap.put(message.peerID, newPeerPieceMap);
+		Boolean[] peerAndMissingPieces = new Boolean[numPieces]; //the pieces I'm missing ANDed with the pieces the peer has
+		for(int i=0; i<numPieces; i++){
+			peerAndMissingPieces[i] = !havePieces[i] & newPeerPieceMap[i]; //invert what I have to mark if missing, AND it with what peer has to check if it has it
+		}
+
+		if(Arrays.stream(peerAndMissingPieces).anyMatch(value -> value == Boolean.TRUE)) //the peer has a piece that I am missing
+		{
+			Message interestedNotification = new Message(0, MessageTypes.interested, null);
+			peerTCPConnections.get(message.peerID).send(interestedNotification);
+		}
+		else{ //the peer has nothing i need
+			Message notInterestedNotification = new Message(0, MessageTypes.notInterested, null);
+			peerTCPConnections.get(message.peerID).send(notInterestedNotification);
+		}
+
 		allPeersHaveFile = true;
 		peerTCPConnections.forEach((peerID, peerConnection) -> {
 			if(!peerConnection.haveFile){
