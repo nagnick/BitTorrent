@@ -286,8 +286,8 @@ public class Peer implements Runnable{
 						Arrays.fill(requestedPieces, haveFile); // don't request pieces I have so add to requested list
 						if (haveFile) { // if I have the file read it into memory
 							try {
-								desiredFileName = myID +"\\"+ desiredFileName;
-								desiredFileName = System.getProperty("user.dir") + "\\"+ desiredFileName;
+								desiredFileName = myID +"/"+ desiredFileName;
+								desiredFileName = System.getProperty("user.dir") + "/"+ desiredFileName;
 								Path path = Paths.get(desiredFileName);
 								file = Files.readAllBytes(path); // bring file into memory
 							} catch (Exception e) {
@@ -619,8 +619,8 @@ public class Peer implements Runnable{
 			if(haveFile && !startedWithFile){
 				logger.logDownloadCompletion();
 				try {
-					desiredFileName = myID +"\\"+ desiredFileName;
-					desiredFileName = System.getProperty("user.dir") + "\\"+ desiredFileName;
+					desiredFileName = myID +"/"+ desiredFileName;
+					desiredFileName = System.getProperty("user.dir") + "/"+ desiredFileName;
 					Path path = Paths.get(desiredFileName); // broken need to fix
 					Files.write(path,file);
 				}

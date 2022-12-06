@@ -17,7 +17,7 @@ public class Logger {
 		fileName = name;
 		myPeerID = id;
 		filePath = System.getProperty("user.dir");
-		filePath = filePath +"\\"+ fileName;
+		filePath = filePath +"/"+ fileName;
 		formatter = DateTimeFormatter.ofPattern("MM/dd HH:mm:ss");
 		curTime = LocalDateTime.now();
 	}
