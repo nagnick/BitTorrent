@@ -92,22 +92,20 @@ public class Logger {
 		String output = "";
 		curTime = LocalDateTime.now();
 		output = formatter.format(curTime)+": Peer "+myPeerID + " has the preferred neighbors ";
-		for(int i = 0; i<prefNeighbors.size()-1;i++)
-		{
-			output = output +prefNeighbors.get(i) +", ";
-		}
-		
-		output = output + prefNeighbors.get(prefNeighbors.size()-1)+"\n";
-		
-		try
-		{
-			FileWriter myFile = new FileWriter(filePath,true);
-			myFile.append(output);
-			myFile.close();
-		}
-		catch (IOException exception)
-		{
-			System.out.println(exception.getMessage());
+		if(prefNeighbors != null && prefNeighbors.size() != 0) {
+			for (int i = 0; i < prefNeighbors.size() - 1; i++) {
+				output = output + prefNeighbors.get(i) + ", ";
+			}
+
+			output = output + prefNeighbors.get(prefNeighbors.size() - 1) + "\n";
+
+			try {
+				FileWriter myFile = new FileWriter(filePath, true);
+				myFile.append(output);
+				myFile.close();
+			} catch (IOException exception) {
+				System.out.println(exception.getMessage());
+			}
 		}
 	}
 	public void logChangeOptUnchokedNeighbor(int optUnchokedNeighbor)
