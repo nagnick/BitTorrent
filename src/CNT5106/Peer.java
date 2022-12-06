@@ -184,9 +184,9 @@ public class Peer implements Runnable{
 						PeerTCPConnection current = peerTCPConnections.get(preferredPeers.get(i));
 						if (preferredPeers.get(i) != optimisticPeer) { // don't add to optimisticPeers runtime let optimistic timer do it(don't double count)
 							current.totalPreferredPeriods += 1;
+							current.send(choke); // don't choke optimistic peer
+							current.choked = true;
 						}
-						current.send(choke);
-						current.choked = true;
 						// set new download rate
 						current.downloadRate = (double) current.totalInMessages / ((current.totalPreferredPeriods * unchokingInterval)
 								+ (current.totalOptimisticPeriods * optimisticUnchokingInterval));
