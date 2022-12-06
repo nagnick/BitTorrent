@@ -148,26 +148,34 @@ public class Peer implements Runnable{
 		Message unchoke = new Message(0, Message.MessageTypes.unchoke,null);
 		Message choke = new Message(0, Message.MessageTypes.choke,null);
 		Object[] keys = peerTCPConnections.keySet().toArray(); // get keys in map currently
+		int newOptPeer = optimisticPeer;
 		if(keys.length != 0) { // no peers yet
 			if (optimistic) { // DONE
-				if (optimisticPeer != -1) { // if an optimistic peer has been set do calculations for download rate (Assumes -1 not valid peerID aka not set)
-					PeerTCPConnection opt = peerTCPConnections.get(optimisticPeer);
-					opt.send(choke); // choke peer before setting new one
-					opt.totalOptimisticPeriods += 1;
-					// set new download rate
-					opt.downloadRate = (double) opt.totalInMessages / ((opt.totalPreferredPeriods * unchokingInterval)
-							+ (opt.totalOptimisticPeriods * optimisticUnchokingInterval));
-					peerTCPConnections.get(optimisticPeer).send(choke); // choke old peer
-					peerTCPConnections.get(optimisticPeer).choked = true; // used for tracking
-				}
 				int i = rand.nextInt(keys.length); // random index [0 - keys.length-1]
 				while (!peerTCPConnections.get((Integer) keys[i]).choked) { // keep looking until find a peer that is choked
 					i = rand.nextInt(keys.length); // random index [0 - keys.length-1]
 				}
-				optimisticPeer = (Integer) keys[i]; // set new optimistic peer
-				logger.logChangeOptUnchokedNeighbor(optimisticPeer);
-				peerTCPConnections.get(optimisticPeer).send(unchoke); // unchoke new peer
-				peerTCPConnections.get(optimisticPeer).choked = false; // used for tracking
+				newOptPeer = (Integer) keys[i]; // set new optimistic peer
+				if (optimisticPeer != -1) { // if an optimistic peer has been set do calculations for download rate (Assumes -1 not valid peerID aka not set)
+					PeerTCPConnection opt = peerTCPConnections.get(optimisticPeer);
+					opt.totalOptimisticPeriods += 1;
+					// set new download rate
+					opt.downloadRate = (double) opt.totalInMessages / ((opt.totalPreferredPeriods * unchokingInterval)
+							+ (opt.totalOptimisticPeriods * optimisticUnchokingInterval));
+					if(newOptPeer != optimisticPeer){ // has opt peer and new one different from old
+						peerTCPConnections.get(optimisticPeer).send(choke); // choke old peer
+						peerTCPConnections.get(optimisticPeer).choked = true; // used for tracking
+						optimisticPeer = newOptPeer;
+						logger.logChangeOptUnchokedNeighbor(optimisticPeer);
+						peerTCPConnections.get(optimisticPeer).send(unchoke); // unchoke new peer
+						peerTCPConnections.get(optimisticPeer).choked = false; // used for tracking
+					}
+				}else{ // no opt peer so set one
+					optimisticPeer = newOptPeer;
+					logger.logChangeOptUnchokedNeighbor(optimisticPeer);
+					peerTCPConnections.get(optimisticPeer).send(unchoke); // unchoke new peer
+					peerTCPConnections.get(optimisticPeer).choked = false; // used for tracking
+				}
 			} else {
 				// set regular unchoke peers
 				//NOTE: each data message increments that peers # of messages this is done in the PeerTCPConnection thread
@@ -209,8 +217,10 @@ public class Peer implements Runnable{
 				} else { // has run before but I have file so don't use download rates anymore // DONE
 					for (int i = 0; i < preferredPeers.size(); i++) { // choke old preferred
 						int current = preferredPeers.get(i);
-						peerTCPConnections.get(current).send(choke);
-						peerTCPConnections.get(current).choked = true;
+						if(current != optimisticPeer) { // don't choke opt peer
+							peerTCPConnections.get(current).send(choke);
+							peerTCPConnections.get(current).choked = true;
+						}
 					}
 					preferredPeers = new ArrayList<>();
 					for (int i = 0; i < keys.length && preferredPeers.size() < numPreferredPeers; i++) {
