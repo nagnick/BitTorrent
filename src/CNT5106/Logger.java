@@ -28,7 +28,7 @@ public class Logger {
 		
 		if(type.equals("TCPConnection"))
 		{
-			logTCPConnection(peerID2);
+			logFromTCPConnection(peerID2);
 		}
 		else if(type.equals("changePrefNeighbors"))
 		{
@@ -71,7 +71,7 @@ public class Logger {
 			System.out.println("Not a valid log type");
 		}
 	}
-	public void logTCPConnection(int peerID2)
+	public void logFromTCPConnection(int peerID2)
 	{
 		curTime = LocalDateTime.now();
 		try
@@ -79,6 +79,22 @@ public class Logger {
 			FileWriter myFile = new FileWriter(filePath,true);
 			String output = "";
 			output = formatter.format(curTime)+": Peer "+myPeerID + " is connected from Peer "+ peerID2 +"\n";
+			myFile.append(output);
+			myFile.close();
+		}
+		catch (IOException exception)
+		{
+			System.out.println(exception.getMessage());
+		}
+	}
+	public void logToTCPConnection(int peerID2)
+	{
+		curTime = LocalDateTime.now();
+		try
+		{
+			FileWriter myFile = new FileWriter(filePath,true);
+			String output = "";
+			output = formatter.format(curTime)+": Peer "+myPeerID + " makes a connection to Peer "+ peerID2 +"\n";
 			myFile.append(output);
 			myFile.close();
 		}

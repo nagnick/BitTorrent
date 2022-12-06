@@ -680,7 +680,7 @@ public class Peer implements Runnable{
 						peerConnection.start(); // start that peers reading thread
 						peerConnection.send(makeMyBitFieldMessage()); // sends out bit field of pieces I have upon connection
 						peerTCPConnections.put(peerHandshake.peerID, peerConnection);
-						logger.logTCPConnection(peerHandshake.peerID); // new connection log it
+						logger.logFromTCPConnection(peerHandshake.peerID); // new connection log it
 					} else { // if in map don't need two connections to peer so close it
 						peerConnection.close();
 					}
