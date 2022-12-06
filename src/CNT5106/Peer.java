@@ -402,17 +402,28 @@ public class Peer implements Runnable{
 		//track peers view of me to maintain ping pong of pieces because
 		peerTCPConnections.get(message.peerID).iamChoked = true;
 	}
-	private void processUnchokeMessage(Message message){ //Done -Nick
+	private void processUnchokeMessage(Message message) { //Done -Nick
 		peerTCPConnections.get(message.peerID).iamChoked = false;
 		logger.logUnchoking(message.peerID);
 		// it unchoked me so send it what I want if download rate is good I may make it a preferred peer
 		// it unchoked me so i will get pieces send which ones I want....
 		// peerPeice map has peices that that peers has
 		//peer id and boolean[] index is for that piece id and true if that peer has that file so if i don't have it so request it...
-		if(!haveFile) { // if i don't have file make a request else do nothing
+		if (!haveFile) { // if i don't have file make a request else do nothing
 			Boolean[] peersPieces = peerPieceMap.get(message.peerID);
-			for (int i = 0; i < peersPieces.length && i < requestedPieces.length; i++) { // add check that it has not been requested??
-				if (peersPieces[i] && !requestedPieces[i]) { // request a piece that they have and I have not requested already
+			ArrayList<Integer> CanRequest = new ArrayList<>();
+			for (int i = 0; i < requestedPieces.length; i++) { // add check that it has not been requested??
+				if (!requestedPieces[i]) { // request a piece that I don't have yet and I have not requested already
+					if (CanRequest.size() != 0) {
+						CanRequest.add(rand.nextInt(CanRequest.size()), i);
+					} else {
+						CanRequest.add(i);
+					}
+				}
+			}
+			for (int i = 0; i < CanRequest.size(); i++) { // add check that it has not been requested??
+				int check = CanRequest.get(i);
+				if (peersPieces[check]) { // request a piece that I don't have yet and I have not requested already
 					ByteBuffer mybuff = ByteBuffer.allocate(4).order(ByteOrder.BIG_ENDIAN);
 					mybuff.putInt(i);
 					peerTCPConnections.get(message.peerID).send(new Message(4, MessageTypes.request, mybuff.array()));
@@ -614,10 +625,21 @@ public class Peer implements Runnable{
 			// do not send if it has choked me because it won't send and will break the accuracy of the requestedPieces array
 			ByteBuffer mybuff = ByteBuffer.allocate(4).order(ByteOrder.BIG_ENDIAN);
 			Boolean[] peersPieces = peerPieceMap.get(message.peerID);
-			for (int i = 0; i < peersPieces.length && i < requestedPieces.length; i++){ // add check that it has not been requested??
-				if(peersPieces[i] && !requestedPieces[i]){ // request a piece that I don't have yet and I have not requested already
-					mybuff.putInt(i);
-					//requestedPieces[i] = true; // just requested it so update
+			ArrayList<Integer> CanRequest = new ArrayList<>();
+			for (int i = 0; i < requestedPieces.length; i++){ // add check that it has not been requested??
+				if(!requestedPieces[i]){ // request a piece that I don't have yet and I have not requested already
+					if(CanRequest.size() != 0) {
+						CanRequest.add(rand.nextInt(CanRequest.size()), i);
+					}
+					else{
+						CanRequest.add(i);
+					}
+				}
+			}
+			for (int i = 0; i < CanRequest.size(); i++){ // add check that it has not been requested??
+				int check = CanRequest.get(i);
+				if(peersPieces[check]){ // request a piece that I don't have yet and I have not requested already
+					mybuff.putInt(check);
 					sender.send(new Message(4,MessageTypes.request,mybuff.array()));
 					break;
 				}
