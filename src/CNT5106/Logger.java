@@ -239,4 +239,46 @@ public class Logger {
 			System.out.println(exception.getMessage());
 		}
 	}
+	public void logCommonConfig(int prefNeighbors, int unchokeInterval, int optUnchokeInterval, String fileName, int fileSize, int pieceSize)
+	{
+		curTime = LocalDateTime.now();
+		try
+		{
+			FileWriter myFile = new FileWriter(filePath,true);
+			String output = "";
+			output = formatter.format(curTime)+": Peer "+myPeerID + " has parsed the Common.cfg file\n";
+			myFile.append(output);
+			output = formatter.format(curTime)+": #prefNeighbors-"+prefNeighbors + " unchoke interval-"+unchokeInterval+"\n";
+			myFile.append(output);
+			output = formatter.format(curTime)+":optimisticUnchokeInterval-"+optUnchokeInterval+ " fileName-"+fileName+"\n"; 
+			myFile.append(output);
+			output = formatter.format(curTime)+": fileSize-"+fileSize + " pieceSize-"+pieceSize+"\n";
+			myFile.append(output);
+			myFile.close();
+		}
+		catch (IOException exception)
+		{
+			System.out.println(exception.getMessage());
+		}
+	}
+	public void logPeerConfig(int currentPeerID,String peerHostName, int peerListenPort, boolean hasFile)
+	{
+		curTime = LocalDateTime.now();
+		try
+		{
+			FileWriter myFile = new FileWriter(filePath,true);
+			String output = "";
+			output = formatter.format(curTime)+": Peer "+myPeerID + " has parsed the PeerInfo.cfg file\n";
+			myFile.append(output);
+			output = formatter.format(curTime)+": Peer ID-"+currentPeerID + " PeerHostName-"+peerHostName+"\n";
+			myFile.append(output);
+			output = formatter.format(curTime)+": PeerListenPort-"+peerListenPort+ " HasFile-"+hasFile+"\n"; 
+			myFile.append(output);
+			myFile.close();
+		}
+		catch (IOException exception)
+		{
+			System.out.println(exception.getMessage());
+		}
+	}
 }

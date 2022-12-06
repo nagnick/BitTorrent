@@ -133,6 +133,8 @@ public class Peer implements Runnable{
 				}
 			}
 			configFile.close(); //we're done with the common config file, close it out.
+			//Log the common config info to show it is read correctly
+			logger.logCommonConfig(this.numPreferredPeers, this.unchokingInterval, this.optimisticUnchokingInterval, this.desiredFileName, this.desiredFileSize, this.pieceSize);
 			numPieces = (int) (Math.ceil((double) (desiredFileSize) / (double) (pieceSize)));
 			this.havePieces = new boolean[numPieces]; //init the pieces array to track what pieces we have
 			this.requestedPieces = new boolean[numPieces];
@@ -271,6 +273,7 @@ public class Peer implements Runnable{
 					String peerHostName = peerInfoMatcher.group(2);
 					int peerListenPort = Integer.parseInt(peerInfoMatcher.group(3));
 					boolean peerHasFile = (Objects.equals(peerInfoMatcher.group(4), "1"));
+					logger.logPeerConfig(currentPeerID, peerHostName, peerListenPort, peerHasFile);
 					if (currentPeerID == myID) {
 						serverListenPort = peerListenPort;
 						haveFile = peerHasFile;
