@@ -328,6 +328,7 @@ public class Peer implements Runnable{
 									peerConnection.start(); // start that peers reading thread
 									//peerConnection.send(makeMyBitFieldMessage()); // sends out bit field of pieces I have upon connection
 									peerTCPConnections.put(peerHandshake.peerID, peerConnection);
+									logger.logToTCPConnection(currentPeerID);
 								}
 								else{
 									peerConnection.close();
