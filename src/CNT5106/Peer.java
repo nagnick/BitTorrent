@@ -262,7 +262,7 @@ public class Peer implements Runnable{
     public void Connect(){ // parse manifest file and connect to peers
 		try {
 			Scanner peerInfoFile = new Scanner(new File(peerInfoFileName));
-			Pattern peerInfoRegex = Pattern.compile("^(\\d{1,})\\s([a-zA-Z\\d-\\.]{1,})\\s(\\d{1,})\\s(0|1)$", Pattern.CASE_INSENSITIVE);
+			Pattern peerInfoRegex = Pattern.compile("^(\\d{1,})\\s([a-zA-Z\\d-\\.]{1,})\\s(\\d{1,})\\s(0|1)", Pattern.CASE_INSENSITIVE);
 			// connect to other peers with help from manifest file
 			// read file connect to those peers probably need to try multiple times as other peers may not be up yet
 			int currentLineNumber = 0; //keep track of what line number we're on.as it determines what we should do when we hit our own entry
