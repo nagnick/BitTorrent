@@ -176,6 +176,7 @@ public class Peer implements Runnable{
 						preferredPeers.add(0, (Integer) (keys[i])); // fill with peers
 						peerTCPConnections.get((Integer) keys[i]).send(unchoke); // unchoke since it is a prefered peer now
 					}
+					logger.logChangePrefNeighbors(preferredPeers);
 				} else if (!haveFile) { // has run before so select preferred peers based on download rate because I don't have file //Done
 					// top numPreferredPeers become new preferred peers
 					for (int i = 0; i < preferredPeers.size(); i++) { // remove current prefered peers
@@ -198,11 +199,12 @@ public class Peer implements Runnable{
 					}
 					preferredPeers = new ArrayList<Integer>(); // set up new array list for next set of prefered peers
 					for (int i = 0; i < numPreferredPeers && !bestPeers.isEmpty(); i++) {
-						PeerTCPConnection best = bestPeers.peek();
+						PeerTCPConnection best = bestPeers.poll();
 						preferredPeers.add(0, best.peerID); // fill with peers with best download rate
 						best.send(unchoke); // unchoke since it is a prefered peer now
 						best.choked = false;
 					}
+					logger.logChangePrefNeighbors(preferredPeers);
 				} else { // has run before but I have file so don't use download rates anymore // DONE
 					for (int i = 0; i < preferredPeers.size(); i++) { // choke old preferred
 						int current = preferredPeers.get(i);
