@@ -435,28 +435,10 @@ public class Peer implements Runnable{
 	}
 	private void processInterestedMessage(Message message){
 		logger.logRecvIntMessage(message.peerID);
-//		Boolean[] peerPieces = peerPieceMap.get(message.peerID); //retrieve the current mapping of what pieces we think peer has
-//		Boolean[] newPeerPieceMap = new Boolean[numPieces];
-//		for(int i=0; i<numPieces; i++) //figure out what pieces from me peer already has
-//		{
-//			newPeerPieceMap[i] = peerPieces[i] & havePieces[i];
-//		}
-//		for(int i=0; i<numPieces; i++) //figure out what pieces peer has that aren't from me
-//		{
-//			newPeerPieceMap[i] = newPeerPieceMap[i] | peerPieces[i];
-//		}
-//		peerPieceMap.put(message.peerID, newPeerPieceMap); //update the peer's piece mapping
 		peerTCPConnections.get(message.peerID).interested = true;
 	}
 	private void processNotInterestedMessage(Message message){
 		logger.logRecvNotIntMessage(message.peerID);
-//		Boolean[] peerPieces = peerPieceMap.get(message.peerID); //retrieve the current mapping of what pieces we think peer has
-//		Boolean[] newPeerPieceMap = new Boolean[numPieces];
-//		for(int i=0; i<numPieces; i++) //peer has all of my pieces, so OR what I think it has with what I have.
-//		{
-//			newPeerPieceMap[i] = peerPieces[i] | havePieces[i];
-//		}
-//		peerPieceMap.put(message.peerID, newPeerPieceMap);  //update the peer's piece mapping
 		peerTCPConnections.get(message.peerID).interested = false;
 	}
 	private void processHaveMessage(Message message) { //done
@@ -680,6 +662,7 @@ public class Peer implements Runnable{
 					if (peerTCPConnections.get(peerHandshake.peerID) == null) { // if not in map put in
 						peerConnection.start(); // start that peers reading thread
 						peerConnection.send(makeMyBitFieldMessage()); // sends out bit field of pieces I have upon connection
+
 						peerTCPConnections.put(peerHandshake.peerID, peerConnection);
 						logger.logFromTCPConnection(peerHandshake.peerID); // new connection log it
 					} else { // if in map don't need two connections to peer so close it
