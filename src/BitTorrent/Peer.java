@@ -1,4 +1,4 @@
-package CNT5106;
+package BitTorrent;
 
 import java.io.*;
 import java.net.InetAddress;
@@ -23,7 +23,7 @@ import java.util.regex.Pattern;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.Timer;
 
-import static CNT5106.Message.MessageTypes;
+import static BitTorrent.Message.MessageTypes;
 
 public class Peer implements Runnable{
 	public static class TCPConnectionDownloadRateComparator implements Comparator<PeerTCPConnection> { // used by MAX priority queue in timerup function

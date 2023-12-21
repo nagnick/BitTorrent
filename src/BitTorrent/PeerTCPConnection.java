@@ -1,4 +1,4 @@
-package CNT5106;
+package BitTorrent;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;

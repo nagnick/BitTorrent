@@ -7,4 +7,4 @@ Course project for computer networking
 
 ## to compile project go into src directory and call make
 ## to run a peer use the following command from inside the src directory:
-java CNT5106.Peer PEER_ID
+java BitTorrent.Peer PEER_ID

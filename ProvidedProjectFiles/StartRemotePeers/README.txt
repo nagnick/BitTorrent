@@ -1,4 +1,3 @@
-CEN5501C PROJECT 2
 README.txt for StartRemotePeers
 
 This program is for you to start your remote processes easily.
